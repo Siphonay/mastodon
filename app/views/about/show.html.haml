@@ -63,7 +63,6 @@
               .row__mascot
                 .landing-page__mascot
                   = image_tag asset_pack_path('elephant_friend.svg'), alt: ''
-
       - else
         .column-2.non-preview
           .landing-page__hero
@@ -94,7 +93,11 @@
                   %span= t 'about.status_count_after', count: @instance_presenter.status_count
               .row__mascot
                 .landing-page__mascot
+<<<<<<< HEAD
                   = image_tag asset_pack_path('elephant_friend.svg'), alt: ''
+=======
+                  = image_tag @instance_presenter.mascot&.file&.url || asset_pack_path('elephant_ui_plane.svg'), alt: ''
+>>>>>>> b13c34de3a5fddd23b8ebf55e37f61078aebcfca
 
       - if Setting.timeline_preview
         .column-3
