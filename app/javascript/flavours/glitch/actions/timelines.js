@@ -12,36 +12,13 @@ export const TIMELINE_SCROLL_TOP = 'TIMELINE_SCROLL_TOP';
 
 export const TIMELINE_DISCONNECT = 'TIMELINE_DISCONNECT';
 
-export const TIMELINE_CONTEXT_UPDATE = 'CONTEXT_UPDATE';
-
 export function updateTimeline(timeline, status) {
   return (dispatch, getState) => {
-    const references = status.reblog ? getState().get('statuses').filter((item, itemId) => (itemId === status.reblog.id || item.get('reblog') === status.reblog.id)).map((_, itemId) => itemId) : [];
-    const parents = [];
-
-    if (status.in_reply_to_id) {
-      let parent = getState().getIn(['statuses', status.in_reply_to_id]);
-
-      while (parent && parent.get('in_reply_to_id')) {
-        parents.push(parent.get('id'));
-        parent = getState().getIn(['statuses', parent.get('in_reply_to_id')]);
-      }
-    }
-
     dispatch({
       type: TIMELINE_UPDATE,
       timeline,
       status,
-      references,
     });
-
-    if (parents.length > 0) {
-      dispatch({
-        type: TIMELINE_CONTEXT_UPDATE,
-        status,
-        references: parents,
-      });
-    }
   };
 };
 
@@ -66,6 +43,7 @@ const noOp = () => {};
 export function expandTimeline(timelineId, path, params = {}, done = noOp) {
   return (dispatch, getState) => {
     const timeline = getState().getIn(['timelines', timelineId], ImmutableMap());
+    const isLoadingMore = !!params.max_id;
 
     if (timeline.get('isLoading')) {
       done();
@@ -76,14 +54,14 @@ export function expandTimeline(timelineId, path, params = {}, done = noOp) {
       params.since_id = timeline.getIn(['items', 0]);
     }
 
-    dispatch(expandTimelineRequest(timelineId));
+    dispatch(expandTimelineRequest(timelineId, isLoadingMore));
 
     api(getState).get(path, { params }).then(response => {
       const next = getLinks(response).refs.find(link => link.rel === 'next');
-      dispatch(expandTimelineSuccess(timelineId, response.data, next ? next.uri : null, response.code === 206));
+      dispatch(expandTimelineSuccess(timelineId, response.data, next ? next.uri : null, response.code === 206, isLoadingMore));
       done();
     }).catch(error => {
-      dispatch(expandTimelineFail(timelineId, error));
+      dispatch(expandTimelineFail(timelineId, error, isLoadingMore));
       done();
     });
   };
@@ -99,28 +77,31 @@ export const expandAccountMediaTimeline = (accountId, { maxId } = {}) => expandT
 export const expandHashtagTimeline      = (hashtag, { maxId } = {}, done = noOp) => expandTimeline(`hashtag:${hashtag}`, `/api/v1/timelines/tag/${hashtag}`, { max_id: maxId }, done);
 export const expandListTimeline         = (id, { maxId } = {}, done = noOp) => expandTimeline(`list:${id}`, `/api/v1/timelines/list/${id}`, { max_id: maxId }, done);
 
-export function expandTimelineRequest(timeline) {
+export function expandTimelineRequest(timeline, isLoadingMore) {
   return {
     type: TIMELINE_EXPAND_REQUEST,
     timeline,
+    skipLoading: !isLoadingMore,
   };
 };
 
-export function expandTimelineSuccess(timeline, statuses, next, partial) {
+export function expandTimelineSuccess(timeline, statuses, next, partial, isLoadingMore) {
   return {
     type: TIMELINE_EXPAND_SUCCESS,
     timeline,
     statuses,
     next,
     partial,
+    skipLoading: !isLoadingMore,
   };
 };
 
-export function expandTimelineFail(timeline, error) {
+export function expandTimelineFail(timeline, error, isLoadingMore) {
   return {
     type: TIMELINE_EXPAND_FAIL,
     timeline,
     error,
+    skipLoading: !isLoadingMore,
   };
 };
 
