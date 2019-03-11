@@ -11,9 +11,9 @@ import {
 import { ScrollContainer } from 'react-router-scroll-4';
 import AccountContainer from 'flavours/glitch/containers/account_container';
 import Column from 'flavours/glitch/features/ui/components/column';
+import ProfileColumnHeader from 'flavours/glitch/features/account/components/profile_column_header';
 import HeaderContainer from 'flavours/glitch/features/account_timeline/containers/header_container';
 import LoadMore from 'flavours/glitch/components/load_more';
-import ColumnBackButton from 'flavours/glitch/components/column_back_button';
 import ImmutablePureComponent from 'react-immutable-pure-component';
 
 const mapStateToProps = (state, props) => ({
@@ -43,6 +43,10 @@ export default class Followers extends ImmutablePureComponent {
     }
   }
 
+  handleHeaderClick = () => {
+    this.column.scrollTop();
+  }
+
   handleScroll = (e) => {
     const { scrollTop, scrollHeight, clientHeight } = e.target;
 
@@ -59,6 +63,10 @@ export default class Followers extends ImmutablePureComponent {
   shouldUpdateScroll = (prevRouterProps, { location }) => {
     if ((((prevRouterProps || {}).location || {}).state || {}).mastodonModalOpen) return false;
     return !(location.state && location.state.mastodonModalOpen);
+  }
+
+  setRef = c => {
+    this.column = c;
   }
 
   render () {
@@ -79,8 +87,8 @@ export default class Followers extends ImmutablePureComponent {
     }
 
     return (
-      <Column>
-        <ColumnBackButton />
+      <Column ref={this.setRef}>
+        <ProfileColumnHeader onClick={this.handleHeaderClick} />
 
         <ScrollContainer scrollKey='followers' shouldUpdateScroll={this.shouldUpdateScroll}>
           <div className='scrollable' onScroll={this.handleScroll}>

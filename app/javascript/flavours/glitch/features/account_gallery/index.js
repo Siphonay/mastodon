@@ -6,7 +6,7 @@ import { fetchAccount } from 'flavours/glitch/actions/accounts';
 import { expandAccountMediaTimeline } from 'flavours/glitch/actions/timelines';
 import LoadingIndicator from 'flavours/glitch/components/loading_indicator';
 import Column from 'flavours/glitch/features/ui/components/column';
-import ColumnBackButton from 'flavours/glitch/components/column_back_button';
+import ProfileColumnHeader from 'flavours/glitch/features/account/components/profile_column_header';
 import ImmutablePureComponent from 'react-immutable-pure-component';
 import { getAccountGallery } from 'flavours/glitch/selectors';
 import MediaItem from './components/media_item';
@@ -65,6 +65,10 @@ export default class AccountGallery extends ImmutablePureComponent {
     }
   }
 
+  handleHeaderClick = () => {
+    this.column.scrollTop();
+  }
+
   handleScrollToBottom = () => {
     if (this.props.hasMore) {
       this.handleLoadMore(this.props.medias.size > 0 ? this.props.medias.last().getIn(['status', 'id']) : undefined);
@@ -94,6 +98,10 @@ export default class AccountGallery extends ImmutablePureComponent {
     return !(location.state && location.state.mastodonModalOpen);
   }
 
+  setRef = c => {
+    this.column = c;
+  }
+
   render () {
     const { medias, isLoading, hasMore } = this.props;
 
@@ -112,8 +120,8 @@ export default class AccountGallery extends ImmutablePureComponent {
     }
 
     return (
-      <Column>
-        <ColumnBackButton />
+      <Column ref={this.setRef}>
+        <ProfileColumnHeader onClick={this.handleHeaderClick} />
 
         <ScrollContainer scrollKey='account_gallery' shouldUpdateScroll={this.shouldUpdateScroll}>
           <div className='scrollable scrollable--flex' onScroll={this.handleScroll}>

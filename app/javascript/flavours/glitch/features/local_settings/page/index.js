@@ -108,7 +108,7 @@ export default class LocalSettingsPage extends React.PureComponent {
     ),
     ({ intl, onChange, settings }) => (
       <div className='glitch local-settings__page compose_box_opts'>
-        <h1><FormattedMessage id='settings.compose_box_opts' defaultMessage='Compose box options' /></h1>
+        <h1><FormattedMessage id='settings.compose_box_opts' defaultMessage='Compose box' /></h1>
         <LocalSettingsPageItem
           settings={settings}
           item={['always_show_spoilers_field']}
@@ -327,6 +327,14 @@ export default class LocalSettingsPage extends React.PureComponent {
           onChange={onChange}
         >
           <FormattedMessage id='settings.inline_preview_cards' defaultMessage='Inline preview cards for external links' />
+        </LocalSettingsPageItem>
+        <LocalSettingsPageItem
+          settings={settings}
+          item={['media', 'reveal_behind_cw']}
+          id='mastodon-settings--reveal-behind-cw'
+          onChange={onChange}
+        >
+          <FormattedMessage id='settings.media_reveal_behind_cw' defaultMessage='Reveal sensitive media behind a CW by default' />
         </LocalSettingsPageItem>
       </div>
     ),

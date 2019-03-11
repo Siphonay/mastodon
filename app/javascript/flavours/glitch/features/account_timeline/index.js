@@ -7,8 +7,8 @@ import { expandAccountFeaturedTimeline, expandAccountTimeline } from 'flavours/g
 import StatusList from '../../components/status_list';
 import LoadingIndicator from '../../components/loading_indicator';
 import Column from '../ui/components/column';
+import ProfileColumnHeader from 'flavours/glitch/features/account/components/profile_column_header';
 import HeaderContainer from './containers/header_container';
-import ColumnBackButton from '../../components/column_back_button';
 import { List as ImmutableList } from 'immutable';
 import ImmutablePureComponent from 'react-immutable-pure-component';
 import { FormattedMessage } from 'react-intl';
@@ -57,8 +57,16 @@ export default class AccountTimeline extends ImmutablePureComponent {
     }
   }
 
+  handleHeaderClick = () => {
+    this.column.scrollTop();
+  }
+
   handleLoadMore = maxId => {
     this.props.dispatch(expandAccountTimeline(this.props.params.accountId, { maxId, withReplies: this.props.withReplies }));
+  }
+
+  setRef = c => {
+    this.column = c;
   }
 
   render () {
@@ -73,8 +81,8 @@ export default class AccountTimeline extends ImmutablePureComponent {
     }
 
     return (
-      <Column name='account'>
-        <ColumnBackButton />
+      <Column ref={this.setRef} name='account'>
+        <ProfileColumnHeader onClick={this.handleHeaderClick} />
 
         <StatusList
           prepend={<HeaderContainer accountId={this.props.params.accountId} />}

@@ -54,6 +54,7 @@ const messages = defineMessages({
   detailedStatus: { id: 'status.detailed_status', defaultMessage: 'Detailed conversation view' },
   replyConfirm: { id: 'confirmations.reply.confirm', defaultMessage: 'Reply' },
   replyMessage: { id: 'confirmations.reply.message', defaultMessage: 'Replying now will overwrite the message you are currently composing. Are you sure you want to proceed?' },
+  tootHeading: { id: 'column.toot', defaultMessage: 'Toots and replies' },
 });
 
 const makeMapStateToProps = () => {
@@ -368,6 +369,10 @@ export default class Status extends ImmutablePureComponent {
     }
   }
 
+  handleHeaderClick = () => {
+    this.column.scrollTop();
+  }
+
   renderChildren (list) {
     return list.map(id => (
       <StatusContainer
@@ -387,6 +392,10 @@ export default class Status extends ImmutablePureComponent {
 
   setRef = c => {
     this.node = c;
+  }
+
+  setColumnRef = c => {
+    this.column = c;
   }
 
   componentDidUpdate (prevProps) {
@@ -451,8 +460,11 @@ export default class Status extends ImmutablePureComponent {
     };
 
     return (
-      <Column label={intl.formatMessage(messages.detailedStatus)}>
+      <Column ref={this.setColumnRef} label={intl.formatMessage(messages.detailedStatus)}>
         <ColumnHeader
+          icon='comment'
+          title={intl.formatMessage(messages.tootHeading)}
+          onClick={this.handleHeaderClick}
           showBackButton
           extraButton={(
             <button className='column-header__button' title={intl.formatMessage(!isExpanded ? messages.revealAll : messages.hideAll)} aria-label={intl.formatMessage(!isExpanded ? messages.revealAll : messages.hideAll)} onClick={this.handleToggleAll} aria-pressed={!isExpanded ? 'false' : 'true'}><i className={`fa fa-${!isExpanded ? 'eye-slash' : 'eye'}`} /></button>
