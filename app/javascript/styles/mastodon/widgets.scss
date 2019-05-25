@@ -1,20 +1,21 @@
 .hero-widget {
   margin-bottom: 10px;
   box-shadow: 0 0 15px rgba($base-shadow-color, 0.2);
-
+  background: $base-shadow-color; // move the background color from &__img to here, where it cant overlap.
+  
   &__img {
     width: 100%;
     position: relative;
-    overflow: hidden;
+    //overflow: hidden; // to make the trunk overlap, this is commented out.
     border-radius: 4px 4px 0 0;
-    background: $base-shadow-color;
+    // background: $base-shadow-color; // commented out to make the box bg transparent so the box doesnt overlap the text below.
 
     img {
       object-fit: cover;
       display: block;
       width: 100%;
       height: 100%;
-      margin: 0;
+      margin: 0 0 -4.9% 0; // proportional negative bottom margin to make the trunk overlap no matter what size it's at.
       border-radius: 4px 4px 0 0;
     }
   }
