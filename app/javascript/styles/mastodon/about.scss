@@ -693,7 +693,17 @@ $small-breakpoint: 960px;
   .hero-widget {
     margin-top: 30px;
     margin-bottom: 0;
-
+    background: $base-shadow-color; // move the background color from &__img to here, where it cant overlap with the trunk.
+    
+    &__img {
+      overflow: visible !important; // so the trunk appears past negative margins.
+      background: none !important; // so only the trunk overlaps, not the BG.
+      
+      img {
+        margin: 0 0 -4.9% 0 !important; // proportional margin so the trunk always overlaps the same amount.
+      }
+    }
+    
     h4 {
       padding: 10px;
       text-transform: uppercase;
