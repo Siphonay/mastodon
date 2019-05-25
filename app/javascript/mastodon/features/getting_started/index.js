@@ -7,12 +7,14 @@ import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import ImmutablePropTypes from 'react-immutable-proptypes';
 import ImmutablePureComponent from 'react-immutable-pure-component';
-import { me, invitesEnabled, version, profile_directory } from '../../initial_state';
-import { fetchFollowRequests } from '../../actions/accounts';
+import { me, invitesEnabled, version, profile_directory, repository, source_url } from '../../initial_state';
+import { fetchFollowRequests } from 'mastodon/actions/accounts';
+import { changeSetting } from 'mastodon/actions/settings';
 import { List as ImmutableList } from 'immutable';
 import { Link } from 'react-router-dom';
 import NavigationBar from '../compose/components/navigation_bar';
 import Icon from 'mastodon/components/icon';
+import Toggle from 'react-toggle';
 
 const messages = defineMessages({
   home_timeline: { id: 'tabs_bar.home', defaultMessage: 'Home' },
@@ -39,10 +41,12 @@ const messages = defineMessages({
 const mapStateToProps = state => ({
   myAccount: state.getIn(['accounts', me]),
   unreadFollowRequests: state.getIn(['user_lists', 'follow_requests', 'items'], ImmutableList()).size,
+  forceSingleColumn: state.getIn(['settings', 'forceSingleColumn'], false),
 });
 
 const mapDispatchToProps = dispatch => ({
   fetchFollowRequests: () => dispatch(fetchFollowRequests()),
+  changeForceSingleColumn: checked => dispatch(changeSetting(['forceSingleColumn'], checked)),
 });
 
 const badgeDisplay = (number, limit) => {
@@ -67,6 +71,8 @@ class GettingStarted extends ImmutablePureComponent {
     fetchFollowRequests: PropTypes.func.isRequired,
     unreadFollowRequests: PropTypes.number,
     unreadNotifications: PropTypes.number,
+    forceSingleColumn: PropTypes.bool,
+    changeForceSingleColumn: PropTypes.func.isRequired,
   };
 
   componentDidMount () {
@@ -77,8 +83,12 @@ class GettingStarted extends ImmutablePureComponent {
     }
   }
 
+  handleForceSingleColumnChange = ({ target }) => {
+    this.props.changeForceSingleColumn(target.checked);
+  }
+
   render () {
-    const { intl, myAccount, multiColumn, unreadFollowRequests } = this.props;
+    const { intl, myAccount, multiColumn, unreadFollowRequests, forceSingleColumn } = this.props;
 
     const navItems = [];
     let i = 1;
@@ -172,11 +182,16 @@ class GettingStarted extends ImmutablePureComponent {
               <FormattedMessage
                 id='getting_started.open_source_notice'
                 defaultMessage='Mastodon is open source software. You can contribute or report issues on GitHub at {github}.'
-                values={{ github: <span><a href='https://github.com/tootsuite/mastodon' rel='noopener' target='_blank'>tootsuite/mastodon</a> (v{version})</span> }}
+                values={{ github: <span><a href={source_url} rel='noopener' target='_blank'>{repository}</a> (v{version})</span> }}
               />
             </p>
           </div>
         </div>
+
+        <label className='navigational-toggle'>
+          <FormattedMessage id='getting_started.use_simple_layout' defaultMessage='Use simple layout' />
+          <Toggle checked={forceSingleColumn} onChange={this.handleForceSingleColumnChange} />
+        </label>
       </Column>
     );
   }

@@ -6,6 +6,7 @@
   %li= link_to t('preferences.publishing'), '#settings_publishing'
   %li= link_to t('preferences.other'), '#settings_other'
   %li= link_to t('preferences.web'), '#settings_web'
+  %li= link_to t('settings.notifications'), settings_notifications_path
 
 = simple_form_for current_user, url: settings_preferences_path, html: { method: :put } do |f|
   = render 'shared/error_messages', object: current_user
@@ -23,6 +24,8 @@
 
   .fields-group
     = f.input :setting_default_privacy, collection: Status.selectable_visibilities, wrapper: :with_floating_label, include_blank: false, label_method: lambda { |visibility| safe_join([I18n.t("statuses.visibilities.#{visibility}"), content_tag(:span, I18n.t("statuses.visibilities.#{visibility}_long"), class: 'hint')]) }, required: false, as: :radio_buttons, collection_wrapper_tag: 'ul', item_wrapper_tag: 'li'
+
+    = f.input :setting_default_content_type, collection: ['text/plain', 'text/markdown', 'text/html'], wrapper: :with_label, include_blank: false, label_method: lambda { |item| safe_join([t("simple_form.labels.defaults.setting_default_content_type_#{item.split('/')[1]}"), content_tag(:span, t("simple_form.hints.defaults.setting_default_content_type_#{item.split('/')[1]}"), class: 'hint')]) }, required: false, as: :radio_buttons, collection_wrapper_tag: 'ul', item_wrapper_tag: 'li'
 
     = f.input :setting_default_sensitive, as: :boolean, wrapper: :with_label
 

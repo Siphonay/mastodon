@@ -9,40 +9,16 @@ import Motion from 'mastodon/features/ui/util/optional_motion';
 import spring from 'react-motion/lib/spring';
 import escapeTextContentForBrowser from 'escape-html';
 import emojify from 'mastodon/features/emoji/emoji';
+import RelativeTimestamp from './relative_timestamp';
 
 const messages = defineMessages({
-  moments: { id: 'time_remaining.moments', defaultMessage: 'Moments remaining' },
-  seconds: { id: 'time_remaining.seconds', defaultMessage: '{number, plural, one {# second} other {# seconds}} left' },
-  minutes: { id: 'time_remaining.minutes', defaultMessage: '{number, plural, one {# minute} other {# minutes}} left' },
-  hours: { id: 'time_remaining.hours', defaultMessage: '{number, plural, one {# hour} other {# hours}} left' },
-  days: { id: 'time_remaining.days', defaultMessage: '{number, plural, one {# day} other {# days}} left' },
   closed: { id: 'poll.closed', defaultMessage: 'Closed' },
 });
 
-const SECOND = 1000;
-const MINUTE = 1000 * 60;
-const HOUR   = 1000 * 60 * 60;
-const DAY    = 1000 * 60 * 60 * 24;
-
-const timeRemainingString = (intl, date, now) => {
-  const delta = date.getTime() - now;
-
-  let relativeTime;
-
-  if (delta < 10 * SECOND) {
-    relativeTime = intl.formatMessage(messages.moments);
-  } else if (delta < MINUTE) {
-    relativeTime = intl.formatMessage(messages.seconds, { number: Math.floor(delta / SECOND) });
-  } else if (delta < HOUR) {
-    relativeTime = intl.formatMessage(messages.minutes, { number: Math.floor(delta / MINUTE) });
-  } else if (delta < DAY) {
-    relativeTime = intl.formatMessage(messages.hours, { number: Math.floor(delta / HOUR) });
-  } else {
-    relativeTime = intl.formatMessage(messages.days, { number: Math.floor(delta / DAY) });
-  }
-
-  return relativeTime;
-};
+const makeEmojiMap = record => record.get('emojis').reduce((obj, emoji) => {
+  obj[`:${emoji.get('shortcode')}:`] = emoji.toJS();
+  return obj;
+}, {});
 
 export default @injectIntl
 class Poll extends ImmutablePureComponent {
@@ -52,6 +28,7 @@ class Poll extends ImmutablePureComponent {
     intl: PropTypes.object.isRequired,
     dispatch: PropTypes.func,
     disabled: PropTypes.bool,
+    visible: PropTypes.bool,
   };
 
   state = {
@@ -93,11 +70,18 @@ class Poll extends ImmutablePureComponent {
   };
 
   renderOption (option, optionIndex) {
-    const { poll, disabled } = this.props;
-    const percent            = poll.get('votes_count') === 0 ? 0 : (option.get('votes_count') / poll.get('votes_count')) * 100;
-    const leading            = poll.get('options').filterNot(other => other.get('title') === option.get('title')).every(other => option.get('votes_count') > other.get('votes_count'));
-    const active             = !!this.state.selected[`${optionIndex}`];
-    const showResults        = poll.get('voted') || poll.get('expired');
+    const { poll, disabled, visible } = this.props;
+    const percent     = poll.get('votes_count') === 0 ? 0 : (option.get('votes_count') / poll.get('votes_count')) * 100;
+    const leading     = poll.get('options').filterNot(other => other.get('title') === option.get('title')).every(other => option.get('votes_count') > other.get('votes_count'));
+    const active      = !!this.state.selected[`${optionIndex}`];
+    const showResults = poll.get('voted') || poll.get('expired');
+
+    let titleEmojified = option.get('title_emojified');
+
+    if (!titleEmojified) {
+      const emojiMap = makeEmojiMap(poll);
+      titleEmojified = emojify(escapeTextContentForBrowser(option.get('title')), emojiMap);
+    }
 
     return (
       <li key={option.get('title')}>
@@ -122,7 +106,7 @@ class Poll extends ImmutablePureComponent {
           {!showResults && <span className={classNames('poll__input', { checkbox: poll.get('multiple'), active })} />}
           {showResults && <span className='poll__number'>{Math.round(percent)}%</span>}
 
-          <span dangerouslySetInnerHTML={{ __html: option.get('title_emojified', emojify(escapeTextContentForBrowser(option.get('title')))) }} />
+          {visible ? <span dangerouslySetInnerHTML={{ __html: titleEmojified }} /> : <span>{String.fromCharCode(64 + optionIndex + 1)}</span>}
         </label>
       </li>
     );
@@ -135,7 +119,7 @@ class Poll extends ImmutablePureComponent {
       return null;
     }
 
-    const timeRemaining = poll.get('expired') ? intl.formatMessage(messages.closed) : timeRemainingString(intl, new Date(poll.get('expires_at')), intl.now());
+    const timeRemaining = poll.get('expired') ? intl.formatMessage(messages.closed) : <RelativeTimestamp timestamp={poll.get('expires_at')} futureDate />;
     const showResults   = poll.get('voted') || poll.get('expired');
     const disabled      = this.props.disabled || Object.entries(this.state.selected).every(item => !item);
 

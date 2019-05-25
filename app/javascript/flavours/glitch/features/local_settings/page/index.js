@@ -42,6 +42,15 @@ export default class LocalSettingsPage extends React.PureComponent {
         >
           <FormattedMessage id='settings.show_reply_counter' defaultMessage='Display an estimate of the reply count' />
         </LocalSettingsPageItem>
+        <LocalSettingsPageItem
+          settings={settings}
+          item={['hicolor_privacy_icons']}
+          id='mastodon-settings--hicolor_privacy_icons'
+          onChange={onChange}
+        >
+          <FormattedMessage id='settings.hicolor_privacy_icons' defaultMessage='High color privacy icons' />
+          <span className='hint'><FormattedMessage id='settings.hicolor_privacy_icons.hint' defaultMessage="Display privacy icons in bright and easily distinguishable colors" /></span>
+        </LocalSettingsPageItem>
         <section>
           <h2><FormattedMessage id='settings.notifications_opts' defaultMessage='Notifications options' /></h2>
           <LocalSettingsPageItem
@@ -141,6 +150,14 @@ export default class LocalSettingsPage extends React.PureComponent {
           onChange={onChange}
         >
           <FormattedMessage id='settings.confirm_before_clearing_draft' defaultMessage='Show confirmation dialog before overwriting the message being composed' />
+        </LocalSettingsPageItem>
+        <LocalSettingsPageItem
+          settings={settings}
+          item={['show_content_type_choice']}
+          id='mastodon-settings--show_content_type_choice'
+          onChange={onChange}
+        >
+          <FormattedMessage id='settings.show_content_type_choice' defaultMessage='Show content-type choice when authoring toots' />
         </LocalSettingsPageItem>
         <LocalSettingsPageItem
           settings={settings}
