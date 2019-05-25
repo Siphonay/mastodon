@@ -10,6 +10,7 @@ import DisplayName from 'flavours/glitch/components/display_name';
 import ImmutablePureComponent from 'react-immutable-pure-component';
 
 const messages = defineMessages({
+  cancel_reblog: { id: 'status.cancel_reblog_private', defaultMessage: 'Unboost' },
   reblog: { id: 'status.reblog', defaultMessage: 'Boost' },
 });
 
@@ -40,7 +41,9 @@ export default class BoostModal extends ImmutablePureComponent {
     if (e.button === 0) {
       e.preventDefault();
       this.props.onClose();
-      this.context.router.history.push(`/accounts/${this.props.status.getIn(['account', 'id'])}`);
+      let state = {...this.context.router.history.location.state};
+      state.mastodonBackSteps = (state.mastodonBackSteps || 0) + 1;
+      this.context.router.history.push(`/accounts/${this.props.status.getIn(['account', 'id'])}`, state);
     }
   }
 
@@ -50,6 +53,7 @@ export default class BoostModal extends ImmutablePureComponent {
 
   render () {
     const { status, intl } = this.props;
+    const buttonText = status.get('reblogged') ? messages.cancel_reblog : messages.reblog;
 
     return (
       <div className='modal-root__modal boost-modal'>
@@ -75,7 +79,7 @@ export default class BoostModal extends ImmutablePureComponent {
 
         <div className='boost-modal__action-bar'>
           <div><FormattedMessage id='boost_modal.combo' defaultMessage='You can press {combo} to skip this next time' values={{ combo: <span>Shift + <i className='fa fa-retweet' /></span> }} /></div>
-          <Button text={intl.formatMessage(messages.reblog)} onClick={this.handleReblog} ref={this.setRef} />
+          <Button text={intl.formatMessage(buttonText)} onClick={this.handleReblog} ref={this.setRef} />
         </div>
       </div>
     );

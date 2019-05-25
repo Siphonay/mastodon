@@ -68,7 +68,7 @@ class SuspendAccountService < BaseService
   end
 
   def purge_content!
-    distribute_delete_actor! if @account.local?
+    distribute_delete_actor! if @account.local? && !@options[:skip_distribution]
 
     @account.statuses.reorder(nil).find_in_batches do |statuses|
       BatchedRemoveStatusService.new.call(statuses, skip_side_effects: @options[:destroy])
@@ -88,8 +88,8 @@ class SuspendAccountService < BaseService
 
     return if @options[:destroy]
 
-    @account.silenced         = false
-    @account.suspended        = true
+    @account.silenced_at      = nil
+    @account.suspended_at     = @options[:suspended_at] || Time.now.utc
     @account.locked           = false
     @account.display_name     = ''
     @account.note             = ''

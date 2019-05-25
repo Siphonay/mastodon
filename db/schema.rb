@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2019_03_06_145741) do
+ActiveRecord::Schema.define(version: 2019_05_19_130537) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -34,6 +34,19 @@ ActiveRecord::Schema.define(version: 2019_03_06_145741) do
     t.datetime "updated_at", null: false
     t.bigint "account_id"
     t.index ["account_id", "domain"], name: "index_account_domain_blocks_on_account_id_and_domain", unique: true
+  end
+
+  create_table "account_identity_proofs", force: :cascade do |t|
+    t.bigint "account_id"
+    t.string "provider", default: "", null: false
+    t.string "provider_username", default: "", null: false
+    t.text "token", default: "", null: false
+    t.boolean "verified", default: false, null: false
+    t.boolean "live", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "provider", "provider_username"], name: "index_account_proofs_on_account_and_provider_and_username", unique: true
+    t.index ["account_id"], name: "index_account_identity_proofs_on_account_id"
   end
 
   create_table "account_moderation_notes", force: :cascade do |t|
@@ -118,8 +131,6 @@ ActiveRecord::Schema.define(version: 2019_03_06_145741) do
     t.datetime "header_updated_at"
     t.string "avatar_remote_url"
     t.datetime "subscription_expires_at"
-    t.boolean "silenced", default: false, null: false
-    t.boolean "suspended", default: false, null: false
     t.boolean "locked", default: false, null: false
     t.string "header_remote_url", default: "", null: false
     t.datetime "last_webfingered_at"
@@ -135,6 +146,8 @@ ActiveRecord::Schema.define(version: 2019_03_06_145741) do
     t.string "actor_type"
     t.boolean "discoverable"
     t.string "also_known_as", array: true
+    t.datetime "silenced_at"
+    t.datetime "suspended_at"
     t.index "(((setweight(to_tsvector('simple'::regconfig, (display_name)::text), 'A'::\"char\") || setweight(to_tsvector('simple'::regconfig, (username)::text), 'B'::\"char\")) || setweight(to_tsvector('simple'::regconfig, (COALESCE(domain, ''::character varying))::text), 'C'::\"char\")))", name: "search_index", using: :gin
     t.index "lower((username)::text), lower((domain)::text)", name: "index_accounts_on_username_and_domain_lower", unique: true
     t.index ["moved_to_account_id"], name: "index_accounts_on_moved_to_account_id"
@@ -360,6 +373,7 @@ ActiveRecord::Schema.define(version: 2019_03_06_145741) do
     t.bigint "account_id"
     t.text "description"
     t.bigint "scheduled_status_id"
+    t.string "blurhash"
     t.index ["account_id"], name: "index_media_attachments_on_account_id"
     t.index ["scheduled_status_id"], name: "index_media_attachments_on_scheduled_status_id"
     t.index ["shortcode"], name: "index_media_attachments_on_shortcode", unique: true
@@ -536,6 +550,7 @@ ActiveRecord::Schema.define(version: 2019_03_06_145741) do
     t.bigint "action_taken_by_account_id"
     t.bigint "target_account_id", null: false
     t.bigint "assigned_account_id"
+    t.string "uri"
     t.index ["account_id"], name: "index_reports_on_account_id"
     t.index ["target_account_id"], name: "index_reports_on_target_account_id"
   end
@@ -622,6 +637,7 @@ ActiveRecord::Schema.define(version: 2019_03_06_145741) do
     t.bigint "in_reply_to_account_id"
     t.boolean "local_only"
     t.bigint "poll_id"
+    t.string "content_type"
     t.index ["account_id", "id", "visibility", "updated_at"], name: "index_statuses_20180106", order: { id: :desc }
     t.index ["in_reply_to_account_id"], name: "index_statuses_on_in_reply_to_account_id"
     t.index ["in_reply_to_id"], name: "index_statuses_on_in_reply_to_id"
@@ -673,8 +689,17 @@ ActiveRecord::Schema.define(version: 2019_03_06_145741) do
     t.string "uri", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "by_moderator"
     t.index ["account_id"], name: "index_tombstones_on_account_id"
     t.index ["uri"], name: "index_tombstones_on_uri"
+  end
+
+  create_table "user_invite_requests", force: :cascade do |t|
+    t.bigint "user_id"
+    t.text "text"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "index_user_invite_requests_on_user_id"
   end
 
   create_table "users", force: :cascade do |t|
@@ -711,6 +736,7 @@ ActiveRecord::Schema.define(version: 2019_03_06_145741) do
     t.string "remember_token"
     t.string "chosen_languages", array: true
     t.bigint "created_by_application_id"
+    t.boolean "approved", default: true, null: false
     t.index ["account_id"], name: "index_users_on_account_id"
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["created_by_application_id"], name: "index_users_on_created_by_application_id"
@@ -742,6 +768,7 @@ ActiveRecord::Schema.define(version: 2019_03_06_145741) do
   add_foreign_key "account_conversations", "accounts", on_delete: :cascade
   add_foreign_key "account_conversations", "conversations", on_delete: :cascade
   add_foreign_key "account_domain_blocks", "accounts", name: "fk_206c6029bd", on_delete: :cascade
+  add_foreign_key "account_identity_proofs", "accounts", on_delete: :cascade
   add_foreign_key "account_moderation_notes", "accounts"
   add_foreign_key "account_moderation_notes", "accounts", column: "target_account_id"
   add_foreign_key "account_pins", "accounts", column: "target_account_id", on_delete: :cascade
@@ -814,6 +841,7 @@ ActiveRecord::Schema.define(version: 2019_03_06_145741) do
   add_foreign_key "stream_entries", "accounts", name: "fk_5659b17554", on_delete: :cascade
   add_foreign_key "subscriptions", "accounts", name: "fk_9847d1cbb5", on_delete: :cascade
   add_foreign_key "tombstones", "accounts", on_delete: :cascade
+  add_foreign_key "user_invite_requests", "users", on_delete: :cascade
   add_foreign_key "users", "accounts", name: "fk_50500f500d", on_delete: :cascade
   add_foreign_key "users", "invites", on_delete: :nullify
   add_foreign_key "users", "oauth_applications", column: "created_by_application_id", on_delete: :nullify

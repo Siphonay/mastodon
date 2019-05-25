@@ -68,7 +68,7 @@ class ActivityPub::Activity::Create < ActivityPub::Activity
         thread: replied_to_status,
         conversation: conversation_from_uri(@object['conversation']),
         media_attachment_ids: process_attachments.take(4).map(&:id),
-        owned_poll: process_poll,
+        poll: process_poll,
       }
     end
   end
@@ -194,7 +194,7 @@ class ActivityPub::Activity::Create < ActivityPub::Activity
       next if attachment['url'].blank?
 
       href             = Addressable::URI.parse(attachment['url']).normalize.to_s
-      media_attachment = MediaAttachment.create(account: @account, remote_url: href, description: attachment['name'].presence, focus: attachment['focalPoint'])
+      media_attachment = MediaAttachment.create(account: @account, remote_url: href, description: attachment['name'].presence, focus: attachment['focalPoint'], blurhash: supported_blurhash?(attachment['blurhash']) ? attachment['blurhash'] : nil)
       media_attachments << media_attachment
 
       next if unsupported_media_type?(attachment['mediaType']) || skip_download?
@@ -240,10 +240,13 @@ class ActivityPub::Activity::Create < ActivityPub::Activity
   end
 
   def poll_vote?
-    return false if replied_to_status.nil? || replied_to_status.poll.nil? || !replied_to_status.local? || !replied_to_status.poll.options.include?(@object['name'])
-    return true if replied_to_status.poll.expired?
-    replied_to_status.poll.votes.create!(account: @account, choice: replied_to_status.poll.options.index(@object['name']), uri: @object['id'])
-    ActivityPub::DistributePollUpdateWorker.perform_in(3.minutes, replied_to_status.id) unless replied_to_status.poll.hide_totals
+    return false if replied_to_status.nil? || replied_to_status.preloadable_poll.nil? || !replied_to_status.local? || !replied_to_status.preloadable_poll.options.include?(@object['name'])
+
+    unless replied_to_status.preloadable_poll.expired?
+      replied_to_status.preloadable_poll.votes.create!(account: @account, choice: replied_to_status.preloadable_poll.options.index(@object['name']), uri: @object['id'])
+      ActivityPub::DistributePollUpdateWorker.perform_in(3.minutes, replied_to_status.id) unless replied_to_status.preloadable_poll.hide_totals?
+    end
+
     true
   end
 
@@ -264,7 +267,11 @@ class ActivityPub::Activity::Create < ActivityPub::Activity
   def conversation_from_uri(uri)
     return nil if uri.nil?
     return Conversation.find_by(id: OStatus::TagManager.instance.unique_tag_to_local_id(uri, 'Conversation')) if OStatus::TagManager.instance.local_id?(uri)
-    Conversation.find_by(uri: uri) || Conversation.create(uri: uri)
+    begin
+      Conversation.find_or_create_by!(uri: uri)
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique
+      retry
+    end
   end
 
   def visibility_from_audience
@@ -366,18 +373,14 @@ class ActivityPub::Activity::Create < ActivityPub::Activity
     mime_type.present? && !(MediaAttachment::IMAGE_MIME_TYPES + MediaAttachment::VIDEO_MIME_TYPES).include?(mime_type)
   end
 
+  def supported_blurhash?(blurhash)
+    components = blurhash.blank? ? nil : Blurhash.components(blurhash)
+    components.present? && components.none? { |comp| comp > 5 }
+  end
+
   def skip_download?
     return @skip_download if defined?(@skip_download)
     @skip_download ||= DomainBlock.find_by(domain: @account.domain)&.reject_media?
-  end
-
-  def invalid_origin?(url)
-    return true if unsupported_uri_scheme?(url)
-
-    needle   = Addressable::URI.parse(url).host
-    haystack = Addressable::URI.parse(@account.uri).host
-
-    !haystack.casecmp(needle).zero?
   end
 
   def reply_to_local?

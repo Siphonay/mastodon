@@ -57,6 +57,42 @@
   }
 }
 
+.compose-form__sensitive-button {
+  padding: 10px;
+  padding-top: 0;
+
+  font-size: 14px;
+  font-weight: 500;
+
+  &.active {
+    color: $highlight-text-color;
+  }
+
+  input[type=checkbox] {
+    display: none;
+  }
+
+  .checkbox {
+    display: inline-block;
+    position: relative;
+    border: 1px solid $ui-primary-color;
+    box-sizing: border-box;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    margin-left: 5px;
+    margin-right: 10px;
+    top: -1px;
+    border-radius: 4px;
+    vertical-align: middle;
+
+    &.active {
+      border-color: $highlight-text-color;
+      background: $highlight-text-color;
+    }
+  }
+}
+
 .composer--reply {
   margin: 0 0 10px;
   border-radius: 4px;
@@ -88,10 +124,71 @@
     white-space: pre-wrap;
     padding-top: 5px;
 
-    p {
+    p, pre, blockquote {
       margin-bottom: 20px;
+      white-space: pre-wrap;
 
-      &:last-child { margin-bottom: 0 }
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+
+    h1, h2, h3, h4, h5 {
+      margin-top: 20px;
+      margin-bottom: 20px;
+    }
+
+    h1, h2 {
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+    h2 {
+      font-size: 16px;
+    }
+
+    h3, h4, h5 {
+      font-weight: 500;
+    }
+
+    blockquote {
+      padding-left: 10px;
+      border-left: 3px solid $inverted-text-color;
+      color: $inverted-text-color;
+      white-space: normal;
+
+      p:last-child {
+        margin-bottom: 0;
+      }
+    }
+
+    b, strong {
+      font-weight: 700;
+    }
+
+    em, i {
+      font-style: italic;
+    }
+
+    sub {
+      font-size: smaller;
+      text-align: sub;
+    }
+
+    ul, ol {
+      margin-left: 1em;
+
+      p {
+        margin: 0;
+      }
+    }
+
+    ul {
+      list-style-type: disc;
+    }
+
+    ol {
+      list-style-type: decimal;
     }
 
     a {
@@ -128,11 +225,12 @@
   }
 }
 
-.composer--textarea {
+.composer--textarea,
+.autosuggest-input {
   position: relative;
 
-  & > label {
-    .textarea {
+  label {
+    .autosuggest-textarea__textarea {
       display: block;
       box-sizing: border-box;
       margin: 0;
@@ -147,6 +245,11 @@
       font-size: 14px;
       font-family: inherit;
       resize: none;
+      scrollbar-color: initial;
+
+      &::-webkit-scrollbar {
+        all: unset;
+      }
 
       &:disabled { background: $ui-secondary-color }
       &:focus { outline: 0 }
@@ -181,7 +284,7 @@
   }
 }
 
-.composer--textarea--suggestions {
+.autosuggest-textarea__suggestions {
   display: block;
   position: absolute;
   box-sizing: border-box;
@@ -194,11 +297,14 @@
   box-shadow: 4px 4px 6px rgba($base-shadow-color, 0.4);
   font-size: 14px;
   z-index: 99;
-
-  &[hidden] { display: none }
+  display: none;
 }
 
-.composer--textarea--suggestions--item {
+.autosuggest-textarea__suggestions--visible {
+  display: block;
+}
+
+.autosuggest-textarea__suggestions__item {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -233,16 +339,14 @@
 }
 
 .composer--upload_form {
-  padding: 5px;
-  color: $inverted-text-color;
-  background: $simple-background-color;
-  font-size: 14px;
+  overflow: hidden;
 
   & > .content {
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
     font-family: inherit;
+    padding: 5px;
     overflow: hidden;
   }
 }

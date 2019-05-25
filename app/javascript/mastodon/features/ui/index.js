@@ -7,7 +7,6 @@ import { Redirect, withRouter } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import NotificationsContainer from './containers/notifications_container';
 import LoadingBarContainer from './containers/loading_bar_container';
-import TabsBar from './components/tabs_bar';
 import ModalContainer from './containers/modal_container';
 import { isMobile } from '../../is_mobile';
 import { debounce } from 'lodash';
@@ -47,7 +46,8 @@ import {
   Lists,
 } from './util/async-components';
 import { me } from '../../initial_state';
-import { previewState } from './components/media_modal';
+import { previewState as previewMediaState } from './components/media_modal';
+import { previewState as previewVideoState } from './components/video_modal';
 
 // Dummy import, to make sure that <Status /> ends up in the application bundle.
 // Without this it ends up in ~8 very commonly used bundles.
@@ -62,6 +62,7 @@ const mapStateToProps = state => ({
   hasComposingText: state.getIn(['compose', 'text']).trim().length !== 0,
   hasMediaAttachments: state.getIn(['compose', 'media_attachments']).size > 0,
   dropdownMenuIsOpen: state.getIn(['dropdown_menu', 'openId']) !== null,
+  forceSingleColumn: state.getIn(['settings', 'forceSingleColumn'], false),
 });
 
 const keyMap = {
@@ -100,6 +101,7 @@ class SwitchingColumnsArea extends React.PureComponent {
     children: PropTypes.node,
     location: PropTypes.object,
     onLayoutChange: PropTypes.func.isRequired,
+    forceSingleColumn: PropTypes.bool,
   };
 
   state = {
@@ -121,7 +123,7 @@ class SwitchingColumnsArea extends React.PureComponent {
   }
 
   shouldUpdateScroll (_, { location }) {
-    return location.state !== previewState;
+    return location.state !== previewMediaState && location.state !== previewVideoState;
   }
 
   handleResize = debounce(() => {
@@ -138,12 +140,13 @@ class SwitchingColumnsArea extends React.PureComponent {
   }
 
   render () {
-    const { children } = this.props;
+    const { children, forceSingleColumn } = this.props;
     const { mobile } = this.state;
-    const redirect = mobile ? <Redirect from='/' to='/timelines/home' exact /> : <Redirect from='/' to='/getting-started' exact />;
+    const singleColumn = forceSingleColumn || mobile;
+    const redirect = singleColumn ? <Redirect from='/' to='/timelines/home' exact /> : <Redirect from='/' to='/getting-started' exact />;
 
     return (
-      <ColumnsAreaContainer ref={this.setRef} singleColumn={mobile}>
+      <ColumnsAreaContainer ref={this.setRef} singleColumn={singleColumn}>
         <WrappedSwitch>
           {redirect}
           <WrappedRoute path='/getting-started' component={GettingStarted} content={children} />
@@ -204,6 +207,7 @@ class UI extends React.PureComponent {
     location: PropTypes.object,
     intl: PropTypes.object.isRequired,
     dropdownMenuIsOpen: PropTypes.bool,
+    forceSingleColumn: PropTypes.bool,
   };
 
   state = {
@@ -367,11 +371,16 @@ class UI extends React.PureComponent {
   handleHotkeyFocusColumn = e => {
     const index  = (e.key * 1) + 1; // First child is drawer, skip that
     const column = this.node.querySelector(`.column:nth-child(${index})`);
+    if (!column) return;
+    const container = column.querySelector('.scrollable');
 
-    if (column) {
-      const status = column.querySelector('.focusable');
+    if (container) {
+      const status = container.querySelector('.focusable');
 
       if (status) {
+        if (container.scrollTop > status.offsetTop) {
+          status.scrollIntoView(true);
+        }
         status.focus();
       }
     }
@@ -447,7 +456,7 @@ class UI extends React.PureComponent {
 
   render () {
     const { draggingOver } = this.state;
-    const { children, isComposing, location, dropdownMenuIsOpen } = this.props;
+    const { children, isComposing, location, dropdownMenuIsOpen, forceSingleColumn } = this.props;
 
     const handlers = {
       help: this.handleHotkeyToggleHelp,
@@ -473,9 +482,7 @@ class UI extends React.PureComponent {
     return (
       <HotKeys keyMap={keyMap} handlers={handlers} ref={this.setHotkeysRef} attach={window} focused>
         <div className={classNames('ui', { 'is-composing': isComposing })} ref={this.setRef} style={{ pointerEvents: dropdownMenuIsOpen ? 'none' : null }}>
-          <TabsBar />
-
-          <SwitchingColumnsArea location={location} onLayoutChange={this.handleLayoutChange}>
+          <SwitchingColumnsArea location={location} onLayoutChange={this.handleLayoutChange} forceSingleColumn={forceSingleColumn}>
             {children}
           </SwitchingColumnsArea>
 
