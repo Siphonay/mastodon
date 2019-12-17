@@ -10,12 +10,13 @@ import AttachmentList from './attachment_list';
 import Card from '../features/status/components/card';
 import { injectIntl, FormattedMessage } from 'react-intl';
 import ImmutablePureComponent from 'react-immutable-pure-component';
-import { MediaGallery, Video } from 'flavours/glitch/util/async-components';
+import { MediaGallery, Video, Audio } from 'flavours/glitch/util/async-components';
 import { HotKeys } from 'react-hotkeys';
 import NotificationOverlayContainer from 'flavours/glitch/features/notifications/containers/overlay_container';
 import classNames from 'classnames';
 import { autoUnfoldCW } from 'flavours/glitch/util/content_warning';
 import PollContainer from 'flavours/glitch/containers/poll_container';
+import { displayMedia } from 'flavours/glitch/util/initial_state';
 
 // We use the component (and not the container) since we do not want
 // to use the progress bar to show download progress
@@ -38,8 +39,24 @@ export const textForScreenReader = (intl, status, rebloggedByText = false, expan
   return values.join(', ');
 };
 
-@injectIntl
-export default class Status extends ImmutablePureComponent {
+export const defaultMediaVisibility = (status, settings) => {
+  if (!status) {
+    return undefined;
+  }
+
+  if (status.get('reblog', null) !== null && typeof status.get('reblog') === 'object') {
+    status = status.get('reblog');
+  }
+
+  if (settings.getIn(['media', 'reveal_behind_cw']) && !!status.get('spoiler_text')) {
+    return true;
+  }
+
+  return (displayMedia !== 'hide_all' && !status.get('sensitive') || displayMedia === 'show_all');
+}
+
+export default @injectIntl
+class Status extends ImmutablePureComponent {
 
   static contextTypes = {
     router: PropTypes.object,
@@ -49,6 +66,7 @@ export default class Status extends ImmutablePureComponent {
     containerId: PropTypes.string,
     id: PropTypes.string,
     status: ImmutablePropTypes.map,
+    otherAccounts: ImmutablePropTypes.list,
     account: ImmutablePropTypes.map,
     onReply: PropTypes.func,
     onFavourite: PropTypes.func,
@@ -66,6 +84,7 @@ export default class Status extends ImmutablePureComponent {
     muted: PropTypes.bool,
     collapse: PropTypes.bool,
     hidden: PropTypes.bool,
+    unread: PropTypes.bool,
     prepend: PropTypes.string,
     withDismiss: PropTypes.bool,
     onMoveUp: PropTypes.func,
@@ -76,12 +95,18 @@ export default class Status extends ImmutablePureComponent {
     intl: PropTypes.object.isRequired,
     cacheMediaWidth: PropTypes.func,
     cachedMediaWidth: PropTypes.number,
+    onClick: PropTypes.func,
   };
 
   state = {
     isCollapsed: false,
     autoCollapsed: false,
     isExpanded: undefined,
+    showMedia: undefined,
+    statusId: undefined,
+    revealBehindCW: undefined,
+    showCard: false,
+    forceFilter: undefined,
   }
 
   // Avoid checking props that are functions (and whose equality will always
@@ -91,8 +116,6 @@ export default class Status extends ImmutablePureComponent {
     'account',
     'settings',
     'prepend',
-    'boostModal',
-    'favouriteModal',
     'muted',
     'collapse',
     'notification',
@@ -103,6 +126,8 @@ export default class Status extends ImmutablePureComponent {
   updateOnStates = [
     'isExpanded',
     'isCollapsed',
+    'showMedia',
+    'forceFilter',
   ]
 
   //  If our settings have changed to disable collapsed statuses, then we
@@ -158,6 +183,20 @@ export default class Status extends ImmutablePureComponent {
         update.isExpanded = isExpanded;
         updated = true;
       }
+    }
+
+    if (nextProps.status && nextProps.status.get('id') !== prevState.statusId) {
+      update.showMedia = defaultMediaVisibility(nextProps.status, nextProps.settings);
+      update.statusId = nextProps.status.get('id');
+      updated = true;
+    }
+
+    if (nextProps.settings.getIn(['media', 'reveal_behind_cw']) !== prevState.revealBehindCW) {
+      update.revealBehindCW = nextProps.settings.getIn(['media', 'reveal_behind_cw']);
+      if (update.revealBehindCW) {
+        update.showMedia = defaultMediaVisibility(nextProps.status, nextProps.settings);
+      }
+      updated = true;
     }
 
     return updated ? update : null;
@@ -219,28 +258,32 @@ export default class Status extends ImmutablePureComponent {
       this.setState({ autoCollapsed: true });
     }
 
-    this.didShowCard  = !this.props.muted && !this.props.hidden && this.props.status && this.props.status.get('card') && this.props.settings.get('inline_preview_cards');
+    // Hack to fix timeline jumps when a preview card is fetched
+    this.setState({
+      showCard: !this.props.muted && !this.props.hidden && this.props.status && this.props.status.get('card') && this.props.settings.get('inline_preview_cards'),
+    });
   }
 
+  //  Hack to fix timeline jumps on second rendering when auto-collapsing
+  //  or on subsequent rendering when a preview card has been fetched
   getSnapshotBeforeUpdate (prevProps, prevState) {
-    if (this.props.getScrollPosition) {
+    if (!this.props.getScrollPosition) return null;
+
+    const { muted, hidden, status, settings } = this.props;
+
+    const doShowCard = !muted && !hidden && status && status.get('card') && settings.get('inline_preview_cards');
+    if (this.state.autoCollapsed || (doShowCard && !this.state.showCard)) {
+      if (doShowCard) this.setState({ showCard: true });
+      if (this.state.autoCollapsed) this.setState({ autoCollapsed: false });
       return this.props.getScrollPosition();
     } else {
       return null;
     }
   }
 
-  //  Hack to fix timeline jumps on second rendering when auto-collapsing
   componentDidUpdate (prevProps, prevState, snapshot) {
-    const doShowCard  = !this.props.muted && !this.props.hidden && this.props.status && this.props.status.get('card') && this.props.settings.get('inline_preview_cards');
-    if (this.state.autoCollapsed || (doShowCard && !this.didShowCard)) {
-      if (doShowCard) this.didShowCard = true;
-      if (this.state.autoCollapsed) this.setState({ autoCollapsed: false });
-      if (snapshot !== null && this.props.updateScrollBottom) {
-        if (this.node.offsetTop < snapshot.top) {
-          this.props.updateScrollBottom(snapshot.height - snapshot.top);
-        }
-      }
+    if (snapshot !== null && this.props.updateScrollBottom && this.node.offsetTop < snapshot.top) {
+      this.props.updateScrollBottom(snapshot.height - snapshot.top);
     }
   }
 
@@ -286,23 +329,31 @@ export default class Status extends ImmutablePureComponent {
     const { status } = this.props;
     const { isCollapsed } = this.state;
     if (!router) return;
-    if (destination === undefined) {
-      destination = `/statuses/${
-        status.getIn(['reblog', 'id'], status.get('id'))
-      }`;
-    }
+
     if (e.button === 0 && !(e.ctrlKey || e.altKey || e.metaKey)) {
       if (isCollapsed) this.setCollapsed(false);
       else if (e.shiftKey) {
         this.setCollapsed(true);
         document.getSelection().removeAllRanges();
+      } else if (this.props.onClick) {
+        this.props.onClick();
+        return;
       } else {
+        if (destination === undefined) {
+          destination = `/statuses/${
+            status.getIn(['reblog', 'id'], status.get('id'))
+          }`;
+        }
         let state = {...router.history.location.state};
         state.mastodonBackSteps = (state.mastodonBackSteps || 0) + 1;
         router.history.push(destination, state);
       }
       e.preventDefault();
     }
+  }
+
+  handleToggleMediaVisibility = () => {
+    this.setState({ showMedia: !this.state.showMedia });
   }
 
   handleAccountClick = (e) => {
@@ -323,6 +374,22 @@ export default class Status extends ImmutablePureComponent {
 
   handleOpenVideo = (media, startTime) => {
     this.props.onOpenVideo(media, startTime);
+  }
+
+  handleHotkeyOpenMedia = e => {
+    const { status, onOpenMedia, onOpenVideo } = this.props;
+
+    e.preventDefault();
+
+    if (status.get('media_attachments').size > 0) {
+      if (status.getIn(['media_attachments', 0, 'type']) === 'audio') {
+        // TODO: toggle play/paused?
+      } else if (status.getIn(['media_attachments', 0, 'type']) === 'video') {
+        onOpenVideo(status.getIn(['media_attachments', 0]), 0);
+      } else {
+        onOpenMedia(status.get('media_attachments'), 0);
+      }
+    }
   }
 
   handleHotkeyReply = e => {
@@ -374,17 +441,33 @@ export default class Status extends ImmutablePureComponent {
     this.setCollapsed(!this.state.isCollapsed);
   }
 
+  handleHotkeyToggleSensitive = () => {
+    this.handleToggleMediaVisibility();
+  }
+
+  handleUnfilterClick = e => {
+    const { onUnfilter, status } = this.props;
+    onUnfilter(status.get('reblog') ? status.get('reblog') : status, () => this.setState({ forceFilter: false }));
+  }
+
+  handleFilterClick = () => {
+    this.setState({ forceFilter: true });
+  }
 
   handleRef = c => {
     this.node = c;
   }
 
   renderLoadingMediaGallery () {
-    return <div className='media_gallery' style={{ height: '110px' }} />;
+    return <div className='media-gallery' style={{ height: '110px' }} />;
   }
 
   renderLoadingVideoPlayer () {
-    return <div className='media-spoiler-video' style={{ height: '110px' }} />;
+    return <div className='video-player' style={{ height: '110px' }} />;
+  }
+
+  renderLoadingAudioPlayer () {
+    return <div className='audio-player' style={{ height: '110px' }} />;
   }
 
   render () {
@@ -399,6 +482,7 @@ export default class Status extends ImmutablePureComponent {
       intl,
       status,
       account,
+      otherAccounts,
       settings,
       collapsed,
       muted,
@@ -408,10 +492,11 @@ export default class Status extends ImmutablePureComponent {
       onOpenMedia,
       notification,
       hidden,
+      unread,
       featured,
       ...other
     } = this.props;
-    const { isExpanded, isCollapsed } = this.state;
+    const { isExpanded, isCollapsed, forceFilter } = this.state;
     let background = null;
     let attachments = null;
     let media = null;
@@ -421,17 +506,36 @@ export default class Status extends ImmutablePureComponent {
       return null;
     }
 
+    const handlers = {
+      reply: this.handleHotkeyReply,
+      favourite: this.handleHotkeyFavourite,
+      boost: this.handleHotkeyBoost,
+      mention: this.handleHotkeyMention,
+      open: this.handleHotkeyOpen,
+      openProfile: this.handleHotkeyOpenProfile,
+      moveUp: this.handleHotkeyMoveUp,
+      moveDown: this.handleHotkeyMoveDown,
+      toggleSpoiler: this.handleExpandedToggle,
+      bookmark: this.handleHotkeyBookmark,
+      toggleCollapse: this.handleHotkeyCollapse,
+      toggleSensitive: this.handleHotkeyToggleSensitive,
+      openMedia: this.handleHotkeyOpenMedia,
+    };
+
     if (hidden) {
       return (
-        <div ref={this.handleRef}>
-          {status.getIn(['account', 'display_name']) || status.getIn(['account', 'username'])}
-          {' '}
-          {status.get('content')}
-        </div>
+        <HotKeys handlers={handlers}>
+          <div ref={this.handleRef} className='status focusable' tabIndex='0'>
+            {status.getIn(['account', 'display_name']) || status.getIn(['account', 'username'])}
+            {' '}
+            {status.get('content')}
+          </div>
+        </HotKeys>
       );
     }
 
-    if (status.get('filtered') || status.getIn(['reblog', 'filtered'])) {
+    const filtered = (status.get('filtered') || status.getIn(['reblog', 'filtered'])) && settings.get('filtering_behavior') !== 'content_warning';
+    if (forceFilter === undefined ? filtered : forceFilter) {
       const minHandlers = this.props.muted ? {} : {
         moveUp: this.handleHotkeyMoveUp,
         moveDown: this.handleHotkeyMoveDown,
@@ -441,6 +545,12 @@ export default class Status extends ImmutablePureComponent {
         <HotKeys handlers={minHandlers}>
           <div className='status__wrapper status__wrapper--filtered focusable' tabIndex='0' ref={this.handleRef}>
             <FormattedMessage id='status.filtered' defaultMessage='Filtered' />
+            {settings.get('filtering_behavior') !== 'upstream' && ' '}
+            {settings.get('filtering_behavior') !== 'upstream' && (
+              <button className='status__wrapper--filtered__button' onClick={this.handleUnfilterClick}>
+                <FormattedMessage id='status.show_filter_reason' defaultMessage='(show why)' />
+              </button>
+            )}
           </div>
         </HotKeys>
       );
@@ -472,16 +582,33 @@ export default class Status extends ImmutablePureComponent {
             media={status.get('media_attachments')}
           />
         );
-      } else if (attachments.getIn([0, 'type']) === 'video') {  //  Media type is 'video'
-        const video = status.getIn(['media_attachments', 0]);
+      } else if (attachments.getIn([0, 'type']) === 'audio') {
+        const attachment = status.getIn(['media_attachments', 0]);
+
+        media = (
+          <Bundle fetchComponent={Audio} loading={this.renderLoadingAudioPlayer} >
+            {Component => (
+              <Component
+                src={attachment.get('url')}
+                alt={attachment.get('description')}
+                duration={attachment.getIn(['meta', 'original', 'duration'], 0)}
+                peaks={[0]}
+                height={70}
+              />
+            )}
+          </Bundle>
+        );
+        mediaIcon = 'music';
+      } else if (attachments.getIn([0, 'type']) === 'video') {
+        const attachment = status.getIn(['media_attachments', 0]);
 
         media = (
           <Bundle fetchComponent={Video} loading={this.renderLoadingVideoPlayer} >
             {Component => (<Component
-              preview={video.get('preview_url')}
-              blurhash={video.get('blurhash')}
-              src={video.get('url')}
-              alt={video.get('description')}
+              preview={attachment.get('preview_url')}
+              blurhash={attachment.get('blurhash')}
+              src={attachment.get('url')}
+              alt={attachment.get('description')}
               inline
               sensitive={status.get('sensitive')}
               letterbox={settings.getIn(['media', 'letterbox'])}
@@ -490,7 +617,8 @@ export default class Status extends ImmutablePureComponent {
               onOpenVideo={this.handleOpenVideo}
               width={this.props.cachedMediaWidth}
               cacheWidth={this.props.cacheMediaWidth}
-              revealed={settings.getIn(['media', 'reveal_behind_cw']) && !!status.get('spoiler_text') ? true : undefined}
+              visible={this.state.showMedia}
+              onToggleVisibility={this.handleToggleMediaVisibility}
             />)}
           </Bundle>
         );
@@ -508,7 +636,8 @@ export default class Status extends ImmutablePureComponent {
                 onOpenMedia={this.props.onOpenMedia}
                 cacheWidth={this.props.cacheMediaWidth}
                 defaultWidth={this.props.cachedMediaWidth}
-                revealed={settings.getIn(['media', 'reveal_behind_cw']) && !!status.get('spoiler_text') ? true : undefined}
+                visible={this.state.showMedia}
+                onToggleVisibility={this.handleToggleMediaVisibility}
               />
             )}
           </Bundle>
@@ -554,24 +683,11 @@ export default class Status extends ImmutablePureComponent {
       rebloggedByText = intl.formatMessage({ id: 'status.reblogged_by', defaultMessage: '{name} boosted' }, { name: account.get('acct') });
     }
 
-    const handlers = {
-      reply: this.handleHotkeyReply,
-      favourite: this.handleHotkeyFavourite,
-      boost: this.handleHotkeyBoost,
-      mention: this.handleHotkeyMention,
-      open: this.handleHotkeyOpen,
-      openProfile: this.handleHotkeyOpenProfile,
-      moveUp: this.handleHotkeyMoveUp,
-      moveDown: this.handleHotkeyMoveDown,
-      toggleSpoiler: this.handleExpandedToggle,
-      bookmark: this.handleHotkeyBookmark,
-      toggleCollapse: this.handleHotkeyCollapse,
-    };
-
     const computedClass = classNames('status', `status-${status.get('visibility')}`, {
       collapsed: isCollapsed,
       'has-background': isCollapsed && background,
       'status__wrapper-reply': !!status.get('in_reply_to_id'),
+      read: unread === false,
       muted,
     }, 'focusable');
 
@@ -602,6 +718,7 @@ export default class Status extends ImmutablePureComponent {
                   friend={account}
                   collapsed={isCollapsed}
                   parseClick={parseClick}
+                  otherAccounts={otherAccounts}
                 />
               ) : null}
             </span>
@@ -611,6 +728,7 @@ export default class Status extends ImmutablePureComponent {
               collapsible={settings.getIn(['collapsed', 'enabled'])}
               collapsed={isCollapsed}
               setCollapsed={setCollapsed}
+              directMessage={!!otherAccounts}
             />
           </header>
           <StatusContent
@@ -621,6 +739,8 @@ export default class Status extends ImmutablePureComponent {
             onExpandedToggle={this.handleExpandedToggle}
             parseClick={parseClick}
             disabled={!router}
+            tagLinks={settings.get('tag_misleading_links')}
+            rewriteMentions={settings.get('rewrite_mentions')}
           />
           {!isCollapsed || !(muted || !settings.getIn(['collapsed', 'show_action_bar'])) ? (
             <StatusActionBar
@@ -628,6 +748,8 @@ export default class Status extends ImmutablePureComponent {
               status={status}
               account={status.get('account')}
               showReplyCount={settings.get('show_reply_count')}
+              directMessage={!!otherAccounts}
+              onFilter={this.handleFilterClick}
             />
           ) : null}
           {notification ? (

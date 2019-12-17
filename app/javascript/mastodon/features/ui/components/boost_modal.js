@@ -9,6 +9,7 @@ import RelativeTimestamp from '../../../components/relative_timestamp';
 import DisplayName from '../../../components/display_name';
 import ImmutablePureComponent from 'react-immutable-pure-component';
 import Icon from 'mastodon/components/icon';
+import AttachmentList from 'mastodon/components/attachment_list';
 
 const messages = defineMessages({
   cancel_reblog: { id: 'status.cancel_reblog_private', defaultMessage: 'Unboost' },
@@ -60,7 +61,7 @@ class BoostModal extends ImmutablePureComponent {
           <div className='status light'>
             <div className='boost-modal__status-header'>
               <div className='boost-modal__status-time'>
-                <a href={status.get('url')} className='status__relative-time' target='_blank' rel='noopener'><RelativeTimestamp timestamp={status.get('created_at')} /></a>
+                <a href={status.get('url')} className='status__relative-time' target='_blank' rel='noopener noreferrer'><RelativeTimestamp timestamp={status.get('created_at')} /></a>
               </div>
 
               <a onClick={this.handleAccountClick} href={status.getIn(['account', 'url'])} className='status__display-name'>
@@ -73,6 +74,13 @@ class BoostModal extends ImmutablePureComponent {
             </div>
 
             <StatusContent status={status} />
+
+            {status.get('media_attachments').size > 0 && (
+              <AttachmentList
+                compact
+                media={status.get('media_attachments')}
+              />
+            )}
           </div>
         </div>
 

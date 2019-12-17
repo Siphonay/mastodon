@@ -8,8 +8,20 @@ Doorkeeper.configure do
   end
 
   resource_owner_from_credentials do |_routes|
-    user = User.find_by(email: request.params[:username])
-    user if !user&.otp_required_for_login? && user&.valid_password?(request.params[:password])
+    if Devise.ldap_authentication
+      user = User.authenticate_with_ldap({ :email => request.params[:username], :password => request.params[:password] })
+    end
+
+    if Devise.pam_authentication
+      user ||= User.authenticate_with_ldap({ :email => request.params[:username], :password => request.params[:password] })
+    end
+
+    if user.nil?
+      user = User.find_by(email: request.params[:username])
+      user = nil unless user.valid_password?(request.params[:password])
+    end
+
+    user if !user&.otp_required_for_login?
   end
 
   # If you want to restrict access to the web interface for adding oauth authorized applications, you need to declare the block below.
@@ -82,7 +94,13 @@ Doorkeeper.configure do
                   :'read:search',
                   :'read:statuses',
                   :follow,
-                  :push
+                  :push,
+                  :'admin:read',
+                  :'admin:read:accounts',
+                  :'admin:read:reports',
+                  :'admin:write',
+                  :'admin:write:accounts',
+                  :'admin:write:reports'
 
   # Change the way client credentials are retrieved from the request object.
   # By default it retrieves first from the `HTTP_AUTHORIZATION` header, then

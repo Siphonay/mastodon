@@ -14,15 +14,15 @@ delegate(document, '.webapp-btn', 'click', ({ target, button }) => {
   return false;
 });
 
-delegate(document, '.status__content__spoiler-link', 'click', ({ target }) => {
-  const contentEl = target.parentNode.parentNode.querySelector('.e-content');
+delegate(document, '.status__content__spoiler-link', 'click', function() {
+  const contentEl = this.parentNode.parentNode.querySelector('.e-content');
 
   if (contentEl.style.display === 'block') {
     contentEl.style.display = 'none';
-    target.parentNode.style.marginBottom = 0;
+    this.parentNode.style.marginBottom = 0;
   } else {
     contentEl.style.display = 'block';
-    target.parentNode.style.marginBottom = null;
+    this.parentNode.style.marginBottom = null;
   }
 
   return false;
@@ -47,7 +47,7 @@ const getProfileAvatarAnimationHandler = (swapTo) => {
   return ({ target }) => {
     const swapSrc = target.getAttribute(swapTo);
     //only change the img source if autoplay is off and the image src is actually different
-    if(target.getAttribute('data-autoplay') === 'false' && target.src !== swapSrc) {
+    if(target.getAttribute('data-autoplay') !== 'true' && target.src !== swapSrc) {
       target.src = swapSrc;
     }
   };

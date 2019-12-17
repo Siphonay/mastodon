@@ -29,12 +29,19 @@ defaults: &defaults
   reduce_motion: false
   show_application: false
   system_font_ui: false
+  system_emoji_font: false
   noindex: false
   hide_followers_count: false
   enable_keybase: true
   flavour: 'glitch'
   skin: 'dark-donphan'
   aggregate_reblogs: true
+  advanced_layout: false
+  use_blurhash: true
+  use_pending_items: false
+  trends: true
+  trendable_by_default: false
+  crop_images: true
   notification_emails:
     follow: false
     reblog: false
@@ -44,6 +51,7 @@ defaults: &defaults
     digest: true
     report: true
     pending_account: true
+    trending_tag: true
   interactions:
     must_be_follower: false
     must_be_following: false
@@ -65,6 +73,9 @@ defaults: &defaults
   show_reblogs_in_public_timelines: false
   show_replies_in_public_timelines: false
   default_content_type: 'text/plain'
+  spam_check_enabled: true
+  show_domain_blocks: 'disabled'
+  show_domain_blocks_rationale: 'disabled'
 
 development:
   <<: *defaults

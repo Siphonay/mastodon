@@ -35,6 +35,7 @@ const messages = defineMessages({
   admin_account: { id: 'status.admin_account', defaultMessage: 'Open moderation interface for @{name}' },
   admin_status: { id: 'status.admin_status', defaultMessage: 'Open this status in the moderation interface' },
   copy: { id: 'status.copy', defaultMessage: 'Copy link to status' },
+  hide: { id: 'status.hide', defaultMessage: 'Hide toot' },
 });
 
 const obfuscatedCount = count => {
@@ -47,8 +48,8 @@ const obfuscatedCount = count => {
   }
 };
 
-@injectIntl
-export default class StatusActionBar extends ImmutablePureComponent {
+export default @injectIntl
+class StatusActionBar extends ImmutablePureComponent {
 
   static contextTypes = {
     router: PropTypes.object,
@@ -69,8 +70,10 @@ export default class StatusActionBar extends ImmutablePureComponent {
     onMuteConversation: PropTypes.func,
     onPin: PropTypes.func,
     onBookmark: PropTypes.func,
+    onFilter: PropTypes.func,
     withDismiss: PropTypes.bool,
     showReplyCount: PropTypes.bool,
+    directMessage: PropTypes.bool,
     intl: PropTypes.object.isRequired,
   };
 
@@ -151,8 +154,12 @@ export default class StatusActionBar extends ImmutablePureComponent {
 
   handleOpen = () => {
     let state = {...this.context.router.history.location.state};
-    state.mastodonBackSteps = (state.mastodonBackSteps || 0) + 1;
-    this.context.router.history.push(`/statuses/${this.props.status.get('id')}`, state);
+    if (state.mastodonModalOpen) {
+      this.context.router.history.replace(`/statuses/${this.props.status.get('id')}`, { mastodonBackSteps: (state.mastodonBackSteps || 0) + 1 });
+    } else {
+      state.mastodonBackSteps = (state.mastodonBackSteps || 0) + 1;
+      this.context.router.history.push(`/statuses/${this.props.status.get('id')}`, state);
+    }
   }
 
   handleEmbed = () => {
@@ -186,8 +193,12 @@ export default class StatusActionBar extends ImmutablePureComponent {
     }
   }
 
+  handleFilterClick = () => {
+    this.props.onFilter();
+  }
+
   render () {
-    const { status, intl, withDismiss, showReplyCount } = this.props;
+    const { status, intl, withDismiss, showReplyCount, directMessage } = this.props;
 
     const mutingConversation = status.get('muted');
     const anonymousAccess    = !me;
@@ -258,6 +269,10 @@ export default class StatusActionBar extends ImmutablePureComponent {
       <IconButton className='status__action-bar-button' title={intl.formatMessage(messages.share)} icon='share-alt' onClick={this.handleShareClick} />
     );
 
+    const filterButton = status.get('filtered') && (
+      <IconButton className='status__action-bar-button' title={intl.formatMessage(messages.hide)} icon='eye' onClick={this.handleFilterClick} />
+    );
+
     let replyButton = (
       <IconButton
         className='status__action-bar-button'
@@ -278,14 +293,16 @@ export default class StatusActionBar extends ImmutablePureComponent {
     return (
       <div className='status__action-bar'>
         {replyButton}
-        <IconButton className='status__action-bar-button' disabled={reblogDisabled} active={status.get('reblogged')} pressed={status.get('reblogged')} title={reblogDisabled ? intl.formatMessage(messages.cannot_reblog) : intl.formatMessage(reblogMessage)} icon={reblogIcon} onClick={this.handleReblogClick} />
-        <IconButton className='status__action-bar-button star-icon' animate active={status.get('favourited')} pressed={status.get('favourited')} title={intl.formatMessage(messages.favourite)} icon='star' onClick={this.handleFavouriteClick} />
-        {shareButton}
-        <IconButton className='status__action-bar-button bookmark-icon' disabled={anonymousAccess} active={status.get('bookmarked')} pressed={status.get('bookmarked')} title={intl.formatMessage(messages.bookmark)} icon='bookmark' onClick={this.handleBookmarkClick} />
-
-        <div className='status__action-bar-dropdown'>
-          <DropdownMenuContainer disabled={anonymousAccess} status={status} items={menu} icon='ellipsis-h' size={18} direction='right' ariaLabel={intl.formatMessage(messages.more)} />
-        </div>
+        {!directMessage && [
+          <IconButton key='reblog-button' className='status__action-bar-button' disabled={reblogDisabled} active={status.get('reblogged')} pressed={status.get('reblogged')} title={reblogDisabled ? intl.formatMessage(messages.cannot_reblog) : intl.formatMessage(reblogMessage)} icon={reblogIcon} onClick={this.handleReblogClick} />,
+          <IconButton key='favourite-button' className='status__action-bar-button star-icon' animate active={status.get('favourited')} pressed={status.get('favourited')} title={intl.formatMessage(messages.favourite)} icon='star' onClick={this.handleFavouriteClick} />,
+          shareButton,
+          <IconButton key='bookmark-button' className='status__action-bar-button bookmark-icon' disabled={anonymousAccess} active={status.get('bookmarked')} pressed={status.get('bookmarked')} title={intl.formatMessage(messages.bookmark)} icon='bookmark' onClick={this.handleBookmarkClick} />,
+          filterButton,
+          <div key='dropdown-button' className='status__action-bar-dropdown'>
+            <DropdownMenuContainer disabled={anonymousAccess} status={status} items={menu} icon='ellipsis-h' size={18} direction='right' ariaLabel={intl.formatMessage(messages.more)} />
+          </div>,
+        ]}
 
         <a href={status.get('url')} className='status__relative-time' target='_blank' rel='noopener'><RelativeTimestamp timestamp={status.get('created_at')} /></a>
       </div>

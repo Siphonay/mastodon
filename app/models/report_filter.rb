@@ -9,14 +9,18 @@ class ReportFilter
 
   def results
     scope = Report.unresolved
+
     params.each do |key, value|
       scope = scope.merge scope_for(key, value)
     end
+
     scope
   end
 
   def scope_for(key, value)
     case key.to_sym
+    when :by_target_domain
+      Report.where(target_account: Account.where(domain: value))
     when :resolved
       Report.resolved
     when :account_id

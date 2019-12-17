@@ -149,7 +149,8 @@ class BackupService < BaseService
     ActiveModelSerializers::SerializableResource.new(
       object,
       serializer: serializer,
-      adapter: ActivityPub::Adapter
+      adapter: ActivityPub::Adapter,
+      allow_local_only: true,
     ).as_json
   end
 
@@ -163,5 +164,7 @@ class BackupService < BaseService
         io.write(buffer)
       end
     end
+  rescue Errno::ENOENT
+    Rails.logger.warn "Could not backup file #{filename}: file not found"
   end
 end

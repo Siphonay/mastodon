@@ -1,24 +1,31 @@
 import { connect } from 'react-redux';
 import StatusList from 'flavours/glitch/components/status_list';
-import { scrollTopTimeline } from 'flavours/glitch/actions/timelines';
+import { scrollTopTimeline, loadPending } from 'flavours/glitch/actions/timelines';
 import { Map as ImmutableMap, List as ImmutableList } from 'immutable';
 import { createSelector } from 'reselect';
 import { debounce } from 'lodash';
 import { me } from 'flavours/glitch/util/initial_state';
 
-const makeGetStatusIds = () => createSelector([
-  (state, { type }) => state.getIn(['settings', type], ImmutableMap()),
-  (state, { type }) => state.getIn(['timelines', type, 'items'], ImmutableList()),
-  (state)           => state.get('statuses'),
-], (columnSettings, statusIds, statuses) => {
-  const rawRegex = columnSettings.getIn(['regex', 'body'], '').trim();
-  let regex      = null;
+const getRegex = createSelector([
+  (state, { type }) => state.getIn(['settings', type, 'regex', 'body']),
+], (rawRegex) => {
+  let regex = null;
 
   try {
-    regex = rawRegex && new RegExp(rawRegex, 'i');
+    regex = rawRegex && new RegExp(rawRegex.trim(), 'i');
   } catch (e) {
     // Bad regex, don't affect filters
   }
+  return regex;
+});
+
+const makeGetStatusIds = (pending = false) => createSelector([
+  (state, { type }) => state.getIn(['settings', type], ImmutableMap()),
+  (state, { type }) => state.getIn(['timelines', type, pending ? 'pendingItems' : 'items'], ImmutableList()),
+  (state)           => state.get('statuses'),
+  getRegex,
+], (columnSettings, statusIds, statuses, regex) => {
+  const rawRegex = columnSettings.getIn(['regex', 'body'], '').trim();
 
   return statusIds.filter(id => {
     if (id === null) return true;
@@ -49,12 +56,14 @@ const makeGetStatusIds = () => createSelector([
 
 const makeMapStateToProps = () => {
   const getStatusIds = makeGetStatusIds();
+  const getPendingStatusIds = makeGetStatusIds(true);
 
   const mapStateToProps = (state, { timelineId }) => ({
     statusIds: getStatusIds(state, { type: timelineId }),
     isLoading: state.getIn(['timelines', timelineId, 'isLoading'], true),
     isPartial: state.getIn(['timelines', timelineId, 'isPartial'], false),
     hasMore:   state.getIn(['timelines', timelineId, 'hasMore']),
+    numPending: getPendingStatusIds(state, { type: timelineId }).size,
   });
 
   return mapStateToProps;
@@ -69,6 +78,8 @@ const mapDispatchToProps = (dispatch, { timelineId }) => ({
   onScroll: debounce(() => {
     dispatch(scrollTopTimeline(timelineId, false));
   }, 100),
+
+  onLoadPending: () => dispatch(loadPending(timelineId)),
 
 });
 

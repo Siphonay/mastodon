@@ -17,19 +17,21 @@ export default class NavigationBar extends ImmutablePureComponent {
       <div className='drawer--account'>
         <Permalink className='avatar' href={this.props.account.get('url')} to={`/accounts/${this.props.account.get('id')}`}>
           <span style={{ display: 'none' }}>{this.props.account.get('acct')}</span>
-          <Avatar account={this.props.account} size={40} />
+          <Avatar account={this.props.account} size={48} />
         </Permalink>
 
-        <Permalink className='acct' href={this.props.account.get('url')} to={`/accounts/${this.props.account.get('id')}`}>
-          <strong>@{this.props.account.get('acct')}</strong>
-        </Permalink>
+        <div className='navigation-bar__profile'>
+          <Permalink className='acct' href={this.props.account.get('url')} to={`/accounts/${this.props.account.get('id')}`}>
+            <strong>@{this.props.account.get('acct')}</strong>
+          </Permalink>
 
-        { profileLink !== undefined && (
-          <a
-            className='edit'
-            href={ profileLink }
-          ><FormattedMessage id='navigation_bar.edit_profile' defaultMessage='Edit profile' /></a>
-        )}
+          { profileLink !== undefined && (
+            <a
+              className='edit'
+              href={ profileLink }
+            ><FormattedMessage id='navigation_bar.edit_profile' defaultMessage='Edit profile' /></a>
+          )}
+        </div>
       </div>
     );
   };

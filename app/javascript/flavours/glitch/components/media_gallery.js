@@ -6,7 +6,7 @@ import IconButton from './icon_button';
 import { defineMessages, injectIntl, FormattedMessage } from 'react-intl';
 import { isIOS } from 'flavours/glitch/util/is_mobile';
 import classNames from 'classnames';
-import { autoPlayGif, displayMedia } from 'flavours/glitch/util/initial_state';
+import { autoPlayGif, displayMedia, useBlurhash } from 'flavours/glitch/util/initial_state';
 import { decode } from 'blurhash';
 
 const messages = defineMessages({
@@ -101,6 +101,8 @@ class Item extends React.PureComponent {
   }
 
   _decode () {
+    if (!useBlurhash) return;
+
     const hash   = this.props.attachment.get('blurhash');
     const pixels = decode(hash, 32, 32);
 
@@ -177,7 +179,7 @@ class Item extends React.PureComponent {
     if (attachment.get('type') === 'unknown') {
       return (
         <div className={classNames('media-gallery__item', { standalone })} key={attachment.get('id')} style={{ left: left, top: top, right: right, bottom: bottom, width: `${width}%`, height: `${height}%` }}>
-          <a className='media-gallery__item-thumbnail' href={attachment.get('remote_url')} target='_blank' style={{ cursor: 'pointer' }}>
+          <a className='media-gallery__item-thumbnail' href={attachment.get('remote_url') || attachment.get('url')} style={{ cursor: 'pointer' }} title={attachment.get('description')} target='_blank' rel='noopener noreferrer'>
             <canvas width={32} height={32} ref={this.setCanvasRef} className='media-gallery__preview' />
           </a>
         </div>
@@ -205,6 +207,7 @@ class Item extends React.PureComponent {
           href={attachment.get('remote_url') || originalUrl}
           onClick={this.handleClick}
           target='_blank'
+          rel='noopener noreferrer'
         >
           <img
             className={letterbox ? 'letterbox' : null}
@@ -252,12 +255,11 @@ class Item extends React.PureComponent {
 
 }
 
-@injectIntl
-export default class MediaGallery extends React.PureComponent {
+export default @injectIntl
+class MediaGallery extends React.PureComponent {
 
   static propTypes = {
     sensitive: PropTypes.bool,
-    revealed: PropTypes.bool,
     standalone: PropTypes.bool,
     letterbox: PropTypes.bool,
     fullwidth: PropTypes.bool,
@@ -268,6 +270,8 @@ export default class MediaGallery extends React.PureComponent {
     intl: PropTypes.object.isRequired,
     defaultWidth: PropTypes.number,
     cacheWidth: PropTypes.func,
+    visible: PropTypes.bool,
+    onToggleVisibility: PropTypes.func,
   };
 
   static defaultProps = {
@@ -275,13 +279,15 @@ export default class MediaGallery extends React.PureComponent {
   };
 
   state = {
-    visible: this.props.revealed === undefined ? (displayMedia !== 'hide_all' && !this.props.sensitive || displayMedia === 'show_all') : this.props.revealed,
+    visible: this.props.visible !== undefined ? this.props.visible : (displayMedia !== 'hide_all' && !this.props.sensitive || displayMedia === 'show_all'),
     width: this.props.defaultWidth,
   };
 
   componentWillReceiveProps (nextProps) {
-    if (!is(nextProps.media, this.props.media) || nextProps.revealed === true) {
-      this.setState({ visible: nextProps.revealed === undefined ? (displayMedia !== 'hide_all' && !nextProps.sensitive || displayMedia === 'show_all') : nextProps.revealed });
+    if (!is(nextProps.media, this.props.media) && nextProps.visible === undefined) {
+      this.setState({ visible: displayMedia !== 'hide_all' && !nextProps.sensitive || displayMedia === 'show_all' });
+    } else if (!is(nextProps.visible, this.props.visible) && nextProps.visible !== undefined) {
+      this.setState({ visible: nextProps.visible });
     }
   }
 
@@ -294,7 +300,11 @@ export default class MediaGallery extends React.PureComponent {
   }
 
   handleOpen = () => {
-    this.setState({ visible: !this.state.visible });
+    if (this.props.onToggleVisibility) {
+      this.props.onToggleVisibility();
+    } else {
+      this.setState({ visible: !this.state.visible });
+    }
   }
 
   handleClick = (index) => {
@@ -320,7 +330,8 @@ export default class MediaGallery extends React.PureComponent {
   render () {
     const { media, intl, sensitive, letterbox, fullwidth, defaultWidth } = this.props;
     const { visible } = this.state;
-    const size = media.take(4).size;
+    const size     = media.take(4).size;
+    const uncached = media.every(attachment => attachment.get('type') === 'unknown');
 
     const width = this.state.width || defaultWidth;
 
@@ -341,10 +352,16 @@ export default class MediaGallery extends React.PureComponent {
     if (this.isStandaloneEligible()) {
       children = <Item standalone onClick={this.handleClick} attachment={media.get(0)} displayWidth={width} visible={visible} />;
     } else {
-      children = media.take(4).map((attachment, i) => <Item key={attachment.get('id')} onClick={this.handleClick} attachment={attachment} index={i} size={size} letterbox={letterbox} displayWidth={width} visible={visible} />);
+      children = media.take(4).map((attachment, i) => <Item key={attachment.get('id')} onClick={this.handleClick} attachment={attachment} index={i} size={size} letterbox={letterbox} displayWidth={width} visible={visible || uncached} />);
     }
 
-    if (visible) {
+    if (uncached) {
+      spoilerButton = (
+        <button type='button' disabled className='spoiler-button__overlay'>
+          <span className='spoiler-button__overlay__label'><FormattedMessage id='status.uncached_media_warning' defaultMessage='Not available' /></span>
+        </button>
+      );
+    } else if (visible) {
       spoilerButton = <IconButton title={intl.formatMessage(messages.toggle_visible)} icon='eye-slash' overlay onClick={this.handleOpen} />;
     } else {
       spoilerButton = (
@@ -356,7 +373,7 @@ export default class MediaGallery extends React.PureComponent {
 
     return (
       <div className={computedClass} style={style} ref={this.handleRef}>
-        <div className={classNames('spoiler-button', { 'spoiler-button--minified': visible })}>
+        <div className={classNames('spoiler-button', { 'spoiler-button--minified': visible && !uncached, 'spoiler-button--click-thru': uncached })}>
           {spoilerButton}
           {visible && sensitive && (
             <span className='sensitive-marker'>
