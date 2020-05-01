@@ -21,13 +21,14 @@ class Api::V1::AccountsController < Api::BaseController
   end
 
   def create
-    token    = AppSignUpService.new.call(doorkeeper_token.application, account_params)
-    response = Doorkeeper::OAuth::TokenResponse.new(token)
+    not_found
+#    token    = AppSignUpService.new.call(doorkeeper_token.application, account_params)
+#    response = Doorkeeper::OAuth::TokenResponse.new(token)
 
-    headers.merge!(response.headers)
+#    headers.merge!(response.headers)
 
-    self.response_body = Oj.dump(response.body)
-    self.status        = response.status
+#    self.response_body = Oj.dump(response.body)
+#    self.status        = response.status
   end
 
   def follow
