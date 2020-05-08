@@ -543,8 +543,6 @@ en:
         deletion:
           desc_html: Allow anyone to delete their account
           title: Open account deletion
-        errors:
-          captcha_fail: Captcha verification failed
         min_invite_role:
           disabled: No one
           title: Allow invitations by

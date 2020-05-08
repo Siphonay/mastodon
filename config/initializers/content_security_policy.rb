@@ -16,7 +16,7 @@ if Rails.env.production?
     attachments_host = nil
   end
 
-  hcaptcha_hosts = ["https://hcaptcha.com", "https://*.hcaptcha.com"]
+  hcaptcha_hosts = ENV['HCAPTCHA_ENABLED'] == 'true' ? ["https://hcaptcha.com", "https://*.hcaptcha.com"] : nil
 
   data_hosts << attachments_host unless attachments_host.nil?
 

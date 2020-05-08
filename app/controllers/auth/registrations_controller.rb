@@ -96,10 +96,10 @@ class Auth::RegistrationsController < Devise::RegistrationsController
 
   def check_captcha
     if ENV['HCAPTCHA_ENABLED'] == 'true' && !verify_hcaptcha
-      self.resource = resource_class.new sign_up_params
+      build_resource(sign_up_params)
       resource.validate
-	  flash[:alert] = Hcaptcha::Helpers.to_error_message(:verification_failed)
-      respond_with_navigational(resource) { render :new }
+      resource.errors.add(:base, flash.delete(:hcaptcha_error))
+      respond_with resource
     end
   end
 
