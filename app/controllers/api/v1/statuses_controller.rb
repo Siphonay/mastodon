@@ -58,6 +58,7 @@ class Api::V1::StatusesController < Api::BaseController
 
     @status.discard
     RemovalWorker.perform_async(@status.id, redraft: true)
+    @status.account.statuses_count = @status.account.statuses_count - 1
 
     render json: @status, serializer: REST::StatusSerializer, source_requested: true
   end
@@ -68,7 +69,7 @@ class Api::V1::StatusesController < Api::BaseController
     @status = Status.find(params[:id])
     authorize @status, :show?
   rescue Mastodon::NotPermittedError
-    raise ActiveRecord::RecordNotFound
+    not_found
   end
 
   def set_thread
