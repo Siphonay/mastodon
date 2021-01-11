@@ -7,6 +7,7 @@ import { autoPlayGif, me, isStaff } from 'flavours/glitch/util/initial_state';
 import { preferencesLink, profileLink, accountAdminLink } from 'flavours/glitch/util/backend_links';
 import classNames from 'classnames';
 import Icon from 'flavours/glitch/components/icon';
+import IconButton from 'flavours/glitch/components/icon_button';
 import Avatar from 'flavours/glitch/components/avatar';
 import Button from 'flavours/glitch/components/button';
 import { NavLink } from 'react-router-dom';
@@ -34,6 +35,8 @@ const messages = defineMessages({
   unblockDomain: { id: 'account.unblock_domain', defaultMessage: 'Unblock domain {domain}' },
   hideReblogs: { id: 'account.hide_reblogs', defaultMessage: 'Hide boosts from @{name}' },
   showReblogs: { id: 'account.show_reblogs', defaultMessage: 'Show boosts from @{name}' },
+  enableNotifications: { id: 'account.enable_notifications', defaultMessage: 'Notify me when @{name} posts' },
+  disableNotifications: { id: 'account.disable_notifications', defaultMessage: 'Stop notifying me when @{name} posts' },
   pins: { id: 'navigation_bar.pins', defaultMessage: 'Pinned toots' },
   preferences: { id: 'navigation_bar.preferences', defaultMessage: 'Preferences' },
   follow_requests: { id: 'navigation_bar.follow_requests', defaultMessage: 'Follow requests' },
@@ -68,8 +71,9 @@ class Header extends ImmutablePureComponent {
     onBlock: PropTypes.func.isRequired,
     onMention: PropTypes.func.isRequired,
     onDirect: PropTypes.func.isRequired,
-    onReport: PropTypes.func.isRequired,
     onReblogToggle: PropTypes.func.isRequired,
+    onNotifyToggle: PropTypes.func.isRequired,
+    onReport: PropTypes.func.isRequired,
     onMute: PropTypes.func.isRequired,
     onBlockDomain: PropTypes.func.isRequired,
     onUnblockDomain: PropTypes.func.isRequired,
@@ -134,8 +138,11 @@ class Header extends ImmutablePureComponent {
 
     const accountNote = account.getIn(['relationship', 'note']);
 
+    const suspended = account.get('suspended');
+
     let info        = [];
     let actionBtn   = '';
+    let bellBtn     = '';
     let lockedIcon  = '';
     let menu        = [];
 
@@ -152,13 +159,17 @@ class Header extends ImmutablePureComponent {
       info.push(<span className='relationship-tag'><FormattedMessage id='account.domain_blocked' defaultMessage='Domain blocked' /></span>);
     }
 
+    if (account.getIn(['relationship', 'requested']) || account.getIn(['relationship', 'following'])) {
+      bellBtn = <IconButton icon='bell-o' size={24} active={account.getIn(['relationship', 'notifying'])} title={intl.formatMessage(account.getIn(['relationship', 'notifying']) ? messages.disableNotifications : messages.enableNotifications, { name: account.get('username') })} onClick={this.props.onNotifyToggle} />;
+    }
+
     if (me !== account.get('id')) {
       if (!account.get('relationship')) { // Wait until the relationship is loaded
         actionBtn = '';
       } else if (account.getIn(['relationship', 'requested'])) {
-        actionBtn = <Button className='logo-button' text={intl.formatMessage(messages.cancel_follow_request)} title={intl.formatMessage(messages.requested)} onClick={this.props.onFollow} />;
+        actionBtn = <Button className={classNames('logo-button', { 'button--with-bell': bellBtn !== '' })} text={intl.formatMessage(messages.cancel_follow_request)} title={intl.formatMessage(messages.requested)} onClick={this.props.onFollow} />;
       } else if (!account.getIn(['relationship', 'blocking'])) {
-        actionBtn = <Button className={classNames('logo-button', { 'button--destructive': account.getIn(['relationship', 'following']) })} text={intl.formatMessage(account.getIn(['relationship', 'following']) ? messages.unfollow : messages.follow)} onClick={this.props.onFollow} />;
+        actionBtn = <Button className={classNames('logo-button', { 'button--destructive': account.getIn(['relationship', 'following']), 'button--with-bell': bellBtn !== '' })} text={intl.formatMessage(account.getIn(['relationship', 'following']) ? messages.unfollow : messages.follow)} onClick={this.props.onFollow} />;
       } else if (account.getIn(['relationship', 'blocking'])) {
         actionBtn = <Button className='logo-button' text={intl.formatMessage(messages.unblock, { name: account.get('username') })} onClick={this.props.onBlock} />;
       }
@@ -170,17 +181,21 @@ class Header extends ImmutablePureComponent {
       actionBtn = '';
     }
 
+    if (suspended && !account.getIn(['relationship', 'following'])) {
+      actionBtn = '';
+    }
+
     if (account.get('locked')) {
       lockedIcon = <Icon id='lock' title={intl.formatMessage(messages.account_locked)} />;
     }
 
-    if (account.get('id') !== me) {
+    if (account.get('id') !== me && !suspended) {
       menu.push({ text: intl.formatMessage(messages.mention, { name: account.get('username') }), action: this.props.onMention });
       menu.push({ text: intl.formatMessage(messages.direct, { name: account.get('username') }), action: this.props.onDirect });
       menu.push(null);
     }
 
-    if ('share' in navigator) {
+    if ('share' in navigator && !suspended) {
       menu.push({ text: intl.formatMessage(messages.share, { name: account.get('username') }), action: this.handleShare });
       menu.push(null);
     }
@@ -283,6 +298,7 @@ class Header extends ImmutablePureComponent {
 
             <div className='account__header__tabs__buttons'>
               {actionBtn}
+              {bellBtn}
 
               <DropdownMenuContainer items={menu} icon='ellipsis-v' size={24} direction='right' />
             </div>
@@ -297,39 +313,41 @@ class Header extends ImmutablePureComponent {
 
           <AccountNoteContainer account={account} />
 
-          <div className='account__header__extra'>
-            <div className='account__header__bio'>
-              { (fields.size > 0 || identity_proofs.size > 0) && (
-                <div className='account__header__fields'>
-                  {identity_proofs.map((proof, i) => (
-                    <dl key={i}>
-                      <dt dangerouslySetInnerHTML={{ __html: proof.get('provider') }} />
+          {!suspended && (
+            <div className='account__header__extra'>
+              <div className='account__header__bio'>
+                { (fields.size > 0 || identity_proofs.size > 0) && (
+                  <div className='account__header__fields'>
+                    {identity_proofs.map((proof, i) => (
+                      <dl key={i}>
+                        <dt dangerouslySetInnerHTML={{ __html: proof.get('provider') }} />
 
-                      <dd className='verified'>
-                        <a href={proof.get('proof_url')} target='_blank' rel='noopener noreferrer'><span title={intl.formatMessage(messages.linkVerifiedOn, { date: intl.formatDate(proof.get('updated_at'), dateFormatOptions) })}>
-                          <Icon id='check' className='verified__mark' />
-                        </span></a>
-                        <a href={proof.get('profile_url')} target='_blank' rel='noopener noreferrer'><span dangerouslySetInnerHTML={{ __html: ' '+proof.get('provider_username') }} /></a>
-                      </dd>
-                    </dl>
-                  ))}
-                  {fields.map((pair, i) => (
-                    <dl key={i}>
-                      <dt dangerouslySetInnerHTML={{ __html: pair.get('name_emojified') }} title={pair.get('name')} />
- 
-                      <dd className={pair.get('verified_at') && 'verified'} title={pair.get('value_plain')}>
-                        {pair.get('verified_at') && <span title={intl.formatMessage(messages.linkVerifiedOn, { date: intl.formatDate(pair.get('verified_at'), dateFormatOptions) })}><Icon id='check' className='verified__mark' /></span>} <span dangerouslySetInnerHTML={{ __html: pair.get('value_emojified') }} />
-                      </dd>
-                    </dl>
-                  ))}
-                </div>
-              )}
+                        <dd className='verified'>
+                          <a href={proof.get('proof_url')} target='_blank' rel='noopener noreferrer'><span title={intl.formatMessage(messages.linkVerifiedOn, { date: intl.formatDate(proof.get('updated_at'), dateFormatOptions) })}>
+                            <Icon id='check' className='verified__mark' />
+                          </span></a>
+                          <a href={proof.get('profile_url')} target='_blank' rel='noopener noreferrer'><span dangerouslySetInnerHTML={{ __html: ' '+proof.get('provider_username') }} /></a>
+                        </dd>
+                      </dl>
+                    ))}
+                    {fields.map((pair, i) => (
+                      <dl key={i}>
+                        <dt dangerouslySetInnerHTML={{ __html: pair.get('name_emojified') }} title={pair.get('name')} />
+   
+                        <dd className={pair.get('verified_at') && 'verified'} title={pair.get('value_plain')}>
+                          {pair.get('verified_at') && <span title={intl.formatMessage(messages.linkVerifiedOn, { date: intl.formatDate(pair.get('verified_at'), dateFormatOptions) })}><Icon id='check' className='verified__mark' /></span>} <span dangerouslySetInnerHTML={{ __html: pair.get('value_emojified') }} />
+                        </dd>
+                      </dl>
+                    ))}
+                  </div>
+                )}
 
-              {account.get('note').length > 0 && account.get('note') !== '<p></p>' && <div className='account__header__content' dangerouslySetInnerHTML={content} />}
+                {account.get('note').length > 0 && account.get('note') !== '<p></p>' && <div className='account__header__content' dangerouslySetInnerHTML={content} />}
+              </div>
             </div>
-         </div>
-       </div>
-     </div>
+          )}
+        </div>
+      </div>
     );
   }
 

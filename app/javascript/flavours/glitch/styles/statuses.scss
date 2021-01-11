@@ -79,9 +79,14 @@
   background: $ui-highlight-color;
   color: $primary-text-color;
   text-transform: none;
-  line-height: 36px;
+  line-height: 1.2;
   height: auto;
-  padding: 3px 15px;
+  min-height: 36px;
+  min-width: 88px;
+  white-space: normal;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  padding: 0 15px;
   border: 0;
 
   svg {
@@ -120,6 +125,12 @@
       display: none;
     }
   }
+}
+
+a.button.logo-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .embed,
@@ -201,19 +212,18 @@
       display: initial;
     }
 
-    .status__relative-time,
-    .status__visibility-icon {
+    .status__relative-time {
       color: $dark-text-color;
       float: right;
       font-size: 14px;
       width: auto;
       margin: initial;
       padding: initial;
+      padding-bottom: 1px;
     }
 
     .status__visibility-icon {
-      margin-left: 4px;
-      margin-right: 4px;
+      padding: 0 4px;
     }
 
     .status__info .status__display-name {
@@ -222,10 +232,6 @@
       padding: 6px 0;
       padding-right: 25px;
       margin: initial;
-
-      .display-name strong {
-        display: inline;
-      }
     }
 
     .status__avatar {

@@ -1,7 +1,6 @@
 import api from 'flavours/glitch/util/api';
 import { debounce } from 'lodash';
 import compareId from 'flavours/glitch/util/compare_id';
-import { showAlertForError } from './alerts';
 
 export const MARKERS_FETCH_REQUEST = 'MARKERS_FETCH_REQUEST';
 export const MARKERS_FETCH_SUCCESS = 'MARKERS_FETCH_SUCCESS';
@@ -29,15 +28,19 @@ export const synchronouslySubmitMarkers = () => (dispatch, getState) => {
       },
       body: JSON.stringify(params),
     });
+
     return;
   } else if (navigator && navigator.sendBeacon) {
     // Failing that, we can use sendBeacon, but we have to encode the data as
     // FormData for DoorKeeper to recognize the token.
     const formData = new FormData();
+
     formData.append('bearer_token', accessToken);
+
     for (const [id, value] of Object.entries(params)) {
       formData.append(`${id}[last_read_id]`, value.last_read_id);
     }
+
     if (navigator.sendBeacon('/api/v1/markers', formData)) {
       return;
     }
@@ -60,7 +63,7 @@ export const synchronouslySubmitMarkers = () => (dispatch, getState) => {
 const _buildParams = (state) => {
   const params = {};
 
-  const lastHomeId         = state.getIn(['timelines', 'home', 'items', 0]);
+  const lastHomeId         = state.getIn(['timelines', 'home', 'items']).find(item => item !== null);
   const lastNotificationId = state.getIn(['notifications', 'lastReadId']);
 
   if (lastHomeId && compareId(lastHomeId, state.getIn(['markers', 'home'])) > 0) {
@@ -85,11 +88,9 @@ const debouncedSubmitMarkers = debounce((dispatch, getState) => {
     return;
   }
 
-  api().post('/api/v1/markers', params).then(() => {
+  api(getState).post('/api/v1/markers', params).then(() => {
     dispatch(submitMarkersSuccess(params));
-  }).catch(error => {
-    dispatch(showAlertForError(error));
-  });
+  }).catch(() => {});
 }, 300000, { leading: true, trailing: true });
 
 export function submitMarkersSuccess({ home, notifications }) {
@@ -100,20 +101,26 @@ export function submitMarkersSuccess({ home, notifications }) {
   };
 };
 
-export function submitMarkers() {
-  return (dispatch, getState) => debouncedSubmitMarkers(dispatch, getState);
+export function submitMarkers(params = {}) {
+  const result = (dispatch, getState) => debouncedSubmitMarkers(dispatch, getState);
+
+  if (params.immediate === true) {
+    debouncedSubmitMarkers.flush();
+  }
+
+  return result;
 };
 
 export const fetchMarkers = () => (dispatch, getState) => {
-    const params = { timeline: ['notifications'] };
+  const params = { timeline: ['notifications'] };
 
-    dispatch(fetchMarkersRequest());
+  dispatch(fetchMarkersRequest());
 
-    api(getState).get('/api/v1/markers', { params }).then(response => {
-      dispatch(fetchMarkersSuccess(response.data));
-    }).catch(error => {
-      dispatch(fetchMarkersFail(error));
-    });
+  api(getState).get('/api/v1/markers', { params }).then(response => {
+    dispatch(fetchMarkersSuccess(response.data));
+  }).catch(error => {
+    dispatch(fetchMarkersFail(error));
+  });
 };
 
 export function fetchMarkersRequest() {
