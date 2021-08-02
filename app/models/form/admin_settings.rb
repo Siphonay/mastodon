@@ -16,7 +16,6 @@ class Form::AdminSettings
     open_deletion
     timeline_preview
     show_staff_badge
-    enable_bootstrap_timeline_accounts
     bootstrap_timeline_accounts
     flavour
     skin
@@ -35,7 +34,6 @@ class Form::AdminSettings
     mascot
     show_reblogs_in_public_timelines
     show_replies_in_public_timelines
-    spam_check_enabled
     trends
     trendable_by_default
     show_domain_blocks
@@ -49,7 +47,6 @@ class Form::AdminSettings
     open_deletion
     timeline_preview
     show_staff_badge
-    enable_bootstrap_timeline_accounts
     activity_api_enabled
     peers_api_enabled
     show_known_fediverse_at_about_page
@@ -59,7 +56,6 @@ class Form::AdminSettings
     enable_keybase
     show_reblogs_in_public_timelines
     show_replies_in_public_timelines
-    spam_check_enabled
     trends
     trendable_by_default
     noindex
