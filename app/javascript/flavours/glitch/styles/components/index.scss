@@ -334,11 +334,11 @@
   }
 }
 
-.star-icon.active {
+.icon-button.star-icon.active {
   color: $gold-star;
 }
 
-.bookmark-icon.active {
+.icon-button.bookmark-icon.active {
   color: $red-bookmark;
 }
 
@@ -1038,7 +1038,7 @@
 .setting-text {
   color: $darker-text-color;
   background: transparent;
-  border: none;
+  border: 0;
   border-bottom: 2px solid $ui-primary-color;
   box-sizing: border-box;
   display: block;
@@ -1232,7 +1232,6 @@ button.icon-button.active i.fa-retweet {
   span {
     display: block;
     float: left;
-    margin-left: 50%;
     transform: translateX(-50%);
     margin: 82px 0 0 50%;
     white-space: nowrap;
